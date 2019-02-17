@@ -1,0 +1,34 @@
+#ifndef __UTIL_ARCHIVE_HPP__
+#define __UTIL_ARCHIVE_HPP__
+
+#include <memory>
+#include <string>
+#include <vector>
+#include <fsys/filesystem.h>
+
+#ifdef ARCHIVELIB_STATIC
+	#define DLLARCHLIB
+#elif ARCHIVELIB_DLL
+	#ifdef __linux__
+		#define DLLARCHLIB __attribute__((visibility("default")))
+	#else
+		#define DLLARCHLIB  __declspec(dllexport)   // export DLL information
+	#endif
+#else
+	#ifdef __linux__
+		#define DLLARCHLIB
+	#else
+		#define DLLARCHLIB  __declspec(dllimport)   // import DLL information
+	#endif
+#endif
+
+namespace uarch
+{
+	DLLARCHLIB VFilePtr load(const std::string &path);
+	DLLARCHLIB bool load(const std::string &path,std::vector<uint8_t> &data);
+	DLLARCHLIB void find_files(const std::string &path,std::vector<std::string> *files,std::vector<std::string> *dirs);
+	DLLARCHLIB void initialize();
+	DLLARCHLIB void close();
+};
+
+#endif
