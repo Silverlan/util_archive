@@ -18,10 +18,6 @@
 #include <thread>
 #include <atomic>
 
-#ifdef _WIN32
-#define ENABLE_BETHESDA_FORMATS
-#endif
-
 #ifdef ENABLE_BETHESDA_FORMATS
 #include <libbsa/libbsa.h>
 #include <bsa_asset.h>

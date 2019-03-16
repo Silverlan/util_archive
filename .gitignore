@@ -27,3 +27,4 @@ util_archive/x64/Release_Test/util_archive.tlog/CL.write.1.tlog
 util_archive/x64/Release_Test/util_archive.tlog/CL.read.1.tlog
 util_archive/x64/Release/util_archive.tlog/CL.read.1.tlog
 x64/Release/util_archive.iobj
+build_winx64/

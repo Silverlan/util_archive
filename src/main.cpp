@@ -5,14 +5,6 @@
 #include "util_archive.hpp"
 #include <fsys/filesystem.h>
 
-#pragma comment(lib,"libbsa.lib")
-#pragma comment(lib,"util.lib")
-#pragma comment(lib,"mathutil.lib")
-#pragma comment(lib,"ba2lib.lib")
-#pragma comment(lib,"zlib.lib")
-#pragma comment(lib,"vfilesystem.lib")
-#pragma comment(lib,"HLLib.lib")
-
 #ifdef TEST_EXE
 
 #include <iostream>
