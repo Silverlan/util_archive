@@ -30,6 +30,7 @@
 #include <iostream>
 #endif
 
+#pragma optimize("",off)
 namespace uarch
 {
 	void initialize(bool bWait);
@@ -249,6 +250,12 @@ void uarch::initialize(bool bWait)
 				{"Half-Life 1 Source Deathmatch/hl2/",{"hl2_misc_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk",}},
 				{"Half-Life 1 Source Deathmatch/platform/",{"platform_misc_dir.vpk"}},
 				{"Portal/portal/",{"portal_pak_dir.vpk"}},
+				{"SourceFilmmaker/game/hl2/",{}},
+				{"SourceFilmmaker/game/left4dead2_movies/",{}},
+				{"SourceFilmmaker/game/platform/",{}},
+				{"SourceFilmmaker/game/tf/",{}},
+				{"SourceFilmmaker/game/tf_movies/",{}},
+				{"SourceFilmmaker/game/usermod/",{}},
 				{"team fortress 2/hl2/",{"hl2_misc_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk"}},
 				{"team fortress 2/tf/",{"tf2_misc_dir.vpk","tf2_sound_misc_dir.vpk","tf2_sound_vo_english_dir.vpk","tf2_textures_dir.vpk"}},
 				{"Dark Messiah Might and Magic Single Player/vpks/",{"depot_2101_dir.vpk","depot_2102_dir.vpk","depot_2103_dir.vpk","depot_2104_dir.vpk","depot_2105_dir.vpk","depot_2106_dir.vpk","depot_2107_dir.vpk","depot_2108_dir.vpk","depot_2109_dir.vpk"}},
@@ -615,3 +622,4 @@ bool uarch::load(const std::string &path,std::vector<uint8_t> &data)
 #endif
 	return false;
 }
+#pragma optimize("",on)
