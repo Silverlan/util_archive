@@ -18,6 +18,10 @@
 #include <thread>
 #include <atomic>
 
+#ifdef __linux__
+#include <cstdlib>
+#endif
+
 #ifdef ENABLE_BETHESDA_FORMATS
 #include <libbsa/libbsa.h>
 #include <bsa_asset.h>
@@ -217,7 +221,16 @@ void uarch::initialize(bool bWait)
 		std::vector<std::string> ba2Paths {};
 #endif
 		std::string rootSteamPath;
+#ifdef _WIN32
 		if(util::get_registry_key_value(util::HKey::CurrentUser,"SOFTWARE\\Valve\\Steam","SteamPath",rootSteamPath) == true)
+#else
+		auto *pHomePath = getenv("HOME");
+		if(pHomePath != nullptr)
+			rootSteamPath = pHomePath;
+		else
+			rootSteamPath = "";
+		rootSteamPath += "/.local/share/Steam";
+#endif
 		{
 #if UARCH_VERBOSE == 1
 			std::cout<<"[uarch] Found root steam path: '"<<rootSteamPath<<"'"<<std::endl;

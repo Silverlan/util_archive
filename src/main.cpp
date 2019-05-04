@@ -17,7 +17,6 @@ int main(int argc,char *argv[])
 	//auto r = bsa::load("meshes\\creatures\\dog\\ine.nif",data);
 	//"models\\props_c17\\awning001a.mdl"
 
-
 	std::vector<std::string> files;
 	std::vector<std::string> dirs;
 	uarch::initialize();
