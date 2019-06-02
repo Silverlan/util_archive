@@ -68,6 +68,7 @@ if(WIN32)
 endif()
 
 link_external_library(HLLib)
+add_include_dir(zlib_build)
 
 set(DEFINITIONS
 	ARCHIVELIB_DLL
