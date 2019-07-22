@@ -65,6 +65,8 @@ if(WIN32)
 	set(CONFIG_ENABLE_BETHESDA_FORMATS "1" CACHE BOOL "Enable support for ba2 and bsa archive files.")
 	link_external_library(ba2)
 	link_external_library(bsa)
+	add_external_library(boost_filesystem)
+	add_external_library(boost_locale)
 endif()
 
 link_external_library(HLLib)
@@ -72,6 +74,7 @@ add_include_dir(zlib_build)
 
 set(DEFINITIONS
 	ARCHIVELIB_DLL
+	LIBBSA_STATIC
 )
 
 if(CONFIG_ENABLE_BETHESDA_FORMATS)
