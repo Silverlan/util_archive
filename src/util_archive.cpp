@@ -141,6 +141,9 @@ static std::atomic<bool> s_threadCancel = {false};
 static std::vector<std::string> s_sourcePaths;
 static void add_source_game_path(const std::string &path)
 {
+#if UARCH_VERBOSE == 1
+	std::cout<<"[uarch] Adding source game path '"<<path<<"'..."<<std::endl;
+#endif
 	auto cpath = FileManager::GetCanonicalizedPath(path);
 	if(FileManager::IsSystemDir(cpath) == false)
 		return;
@@ -148,6 +151,9 @@ static void add_source_game_path(const std::string &path)
 	if(it != s_sourcePaths.end())
 		return;
 	s_sourcePaths.push_back(cpath);
+#if UARCH_VERBOSE == 1
+	std::cout<<"[uarch] Added path successfully!"<<std::endl;
+#endif
 }
 
 static bool get_custom_steam_game_paths(const std::string &steamPath,std::vector<std::string> &paths)
@@ -247,6 +253,12 @@ void uarch::initialize(bool bWait)
 				std::vector<std::string> vpks;
 			};
 			std::vector<GameInfo> gameList = {
+				{"SourceFilmmaker/game/tf_movies/",{}},
+				{"SourceFilmmaker/game/tf/",{}},
+				{"SourceFilmmaker/game/hl2/",{}},
+				{"SourceFilmmaker/game/left4dead2_movies/",{}},
+				{"SourceFilmmaker/game/platform/",{}},
+				{"SourceFilmmaker/game/usermod/",{}},
 				{"half-life 2/ep2/",{"ep2_pak_dir.vpk"}},
 				{"half-life 2/episodic/",{"ep1_pak_dir.vpk"}},
 				{"half-life 2/hl2/",{"hl2_misc_dir.vpk","hl2_pak_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk"}},
@@ -263,12 +275,6 @@ void uarch::initialize(bool bWait)
 				{"Half-Life 1 Source Deathmatch/hl2/",{"hl2_misc_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk",}},
 				{"Half-Life 1 Source Deathmatch/platform/",{"platform_misc_dir.vpk"}},
 				{"Portal/portal/",{"portal_pak_dir.vpk"}},
-				{"SourceFilmmaker/game/hl2/",{}},
-				{"SourceFilmmaker/game/left4dead2_movies/",{}},
-				{"SourceFilmmaker/game/platform/",{}},
-				{"SourceFilmmaker/game/tf/",{}},
-				{"SourceFilmmaker/game/tf_movies/",{}},
-				{"SourceFilmmaker/game/usermod/",{}},
 				{"team fortress 2/hl2/",{"hl2_misc_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk"}},
 				{"team fortress 2/tf/",{"tf2_misc_dir.vpk","tf2_sound_misc_dir.vpk","tf2_sound_vo_english_dir.vpk","tf2_textures_dir.vpk"}},
 				{"Dark Messiah Might and Magic Single Player/vpks/",{"depot_2101_dir.vpk","depot_2102_dir.vpk","depot_2103_dir.vpk","depot_2104_dir.vpk","depot_2105_dir.vpk","depot_2106_dir.vpk","depot_2107_dir.vpk","depot_2108_dir.vpk","depot_2109_dir.vpk"}},
