@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "util_archive.hpp"
+#include "util_vdf.hpp"
 #include "hlarchive.hpp"
 #include <vector>
 #include <sharedutils/util.h>
@@ -138,6 +139,7 @@ static std::vector<ArchiveData<hl::PArchive>> s_hlArchives {};
 static std::unique_ptr<std::thread> s_initThread = nullptr;
 static std::atomic<bool> s_threadCancel = {false};
 
+static std::vector<std::string> s_steamRootPaths;
 static std::vector<std::string> s_sourcePaths;
 static void add_source_game_path(const std::string &path)
 {
@@ -158,6 +160,8 @@ static void add_source_game_path(const std::string &path)
 
 static bool get_custom_steam_game_paths(const std::string &steamPath,std::vector<std::string> &paths)
 {
+	return vdf::get_external_steam_locations(steamPath,paths);
+#if 0 // Obsolete!
 #if UARCH_VERBOSE == 1
 	std::cout<<"[uarch] Looking for custom steam game paths in '"<<(steamPath +"/steamapps/libraryfolders.vdf")<<"'..."<<std::endl;
 #endif
@@ -206,6 +210,7 @@ static bool get_custom_steam_game_paths(const std::string &steamPath,std::vector
 		}
 	}
 	return true;
+#endif
 }
 
 void uarch::initialize() {initialize(false);}
@@ -241,8 +246,8 @@ void uarch::initialize(bool bWait)
 #if UARCH_VERBOSE == 1
 			std::cout<<"[uarch] Found root steam path: '"<<rootSteamPath<<"'"<<std::endl;
 #endif
-			std::vector<std::string> gamePaths = {rootSteamPath};
-			get_custom_steam_game_paths(rootSteamPath,gamePaths);
+			s_steamRootPaths = {rootSteamPath};
+			get_custom_steam_game_paths(rootSteamPath,s_steamRootPaths);
 			// Source Games
 			struct GameInfo
 			{
@@ -253,6 +258,7 @@ void uarch::initialize(bool bWait)
 				std::vector<std::string> vpks;
 			};
 			std::vector<GameInfo> gameList = {
+				{"SourceFilmmaker/game/workshop/",{}},
 				{"SourceFilmmaker/game/tf_movies/",{}},
 				{"SourceFilmmaker/game/tf/",{}},
 				{"SourceFilmmaker/game/hl2/",{}},
@@ -284,8 +290,8 @@ void uarch::initialize(bool bWait)
 			};
 
 			// Determine game paths
-			s_sourcePaths.reserve((gameList.size() +2) *gamePaths.size());
-			for(auto &steamPath : gamePaths)
+			s_sourcePaths.reserve((gameList.size() +2) *s_steamRootPaths.size());
+			for(auto &steamPath : s_steamRootPaths)
 			{
 				for(auto &gi : gameList)
 				{
@@ -301,7 +307,7 @@ void uarch::initialize(bool bWait)
 			}
 
 			// Determine gmod addon paths
-			for(auto &steamPath : gamePaths)
+			for(auto &steamPath : s_steamRootPaths)
 			{
 				std::string gmodAddonPath = steamPath +"/steamapps/common/GarrysMod/garrysmod/addons/";
 				std::vector<std::string> addonDirs;
@@ -335,7 +341,7 @@ void uarch::initialize(bool bWait)
 			std::unordered_map<std::string,bool> loadedVpks;
 			for(auto &gi : gameList)
 			{
-				for(auto &steamPath : gamePaths)
+				for(auto &steamPath : s_steamRootPaths)
 				{
 					auto path = steamPath +"/steamapps/common/" +gi.path;
 					for(auto &vpk : gi.vpks)
@@ -381,7 +387,7 @@ void uarch::initialize(bool bWait)
 				"Oblivion - Voices2.bsa"
 			})
 			{
-				for(auto &steamPath : gamePaths)
+				for(auto &steamPath : s_steamRootPaths)
 					bsaPaths.push_back(steamPath +"/steamapps/common/Oblivion/Data/" +bsa);
 			}
 
@@ -409,7 +415,7 @@ void uarch::initialize(bool bWait)
 				"Update.bsa"
 			})
 			{
-				for(auto &steamPath : gamePaths)
+				for(auto &steamPath : s_steamRootPaths)
 					bsaPaths.push_back(steamPath +"/steamapps/common/Fallout New Vegas/Data/" +bsa);
 			}
 
@@ -437,7 +443,7 @@ void uarch::initialize(bool bWait)
 				"Fallout4 - Voices.ba2"
 			})
 			{
-				for(auto &steamPath : gamePaths)
+				for(auto &steamPath : s_steamRootPaths)
 					ba2Paths.push_back(steamPath +"/steamapps/common/Fallout 4/Data/" +ba2);
 			}
 #endif
@@ -505,6 +511,16 @@ void uarch::initialize(bool bWait)
 		s_initThread->join();
 		s_initThread = nullptr;
 	}
+}
+
+void uarch::add_source_engine_game_path(const std::string &path)
+{
+	uarch::initialize(true);
+	auto npath = path;
+	if(npath.empty() == false && npath.back() != '/')
+		npath += '/';
+	for(auto &steamPath : s_steamRootPaths)
+		add_source_game_path(steamPath +"/steamapps/common/" +npath);
 }
 
 void uarch::close()
@@ -576,18 +592,26 @@ void uarch::find_files(const std::string &fpath,std::vector<std::string> *files,
 #endif
 }
 
-VFilePtr uarch::load(const std::string &path)
+VFilePtr uarch::load(const std::string &path,std::optional<std::string> *optOutSourcePath)
 {
 	auto hlPath = get_hl_path(path);
+	if(optOutSourcePath)
+		*optOutSourcePath = {};
 	for(auto &p : s_sourcePaths)
 	{
 		auto f = FileManager::OpenSystemFile((p +hlPath).c_str(),"rb");
 		if(f != nullptr)
+		{
+			if(optOutSourcePath)
+				*optOutSourcePath = p +hlPath;
 			return f;
+		}
 	}
 	auto data = std::make_shared<std::vector<uint8_t>>();
 	if(load(path,*data) == false)
 		return nullptr;
+	if(optOutSourcePath)
+		*optOutSourcePath = path;
 	FileManager::AddVirtualFile(path,data);
 	return FileManager::OpenFile(path.c_str(),"rb");
 }

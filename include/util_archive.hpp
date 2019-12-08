@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <optional>
 #include <fsys/filesystem.h>
 
 #ifdef ARCHIVELIB_STATIC
@@ -28,11 +29,14 @@
 
 namespace uarch
 {
-	DLLARCHLIB VFilePtr load(const std::string &path);
+	DLLARCHLIB VFilePtr load(const std::string &path,std::optional<std::string> *optOutSourcePath=nullptr);
 	DLLARCHLIB bool load(const std::string &path,std::vector<uint8_t> &data);
 	DLLARCHLIB void find_files(const std::string &path,std::vector<std::string> *files,std::vector<std::string> *dirs);
 	DLLARCHLIB void initialize();
 	DLLARCHLIB void close();
+
+	// Expects path relative to "steamapps/common/"
+	DLLARCHLIB void add_source_engine_game_path(const std::string &path);
 };
 
 #endif
