@@ -540,6 +540,11 @@ void uarch::close()
 void uarch::find_files(const std::string &fpath,std::vector<std::string> *files,std::vector<std::string> *dirs)
 {
 	initialize(true);
+
+	auto hlPath = get_hl_path(fpath);
+	for(auto &p : s_sourcePaths)
+		FileManager::FindSystemFiles((p +hlPath).c_str(),files,dirs);
+
 	auto npath = normalize_path(fpath);
 	const auto fSearchArchive = 
 		[files,dirs,&npath](const auto &data,std::string(*fPathConv)(const std::string&)) {
