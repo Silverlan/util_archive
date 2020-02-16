@@ -280,6 +280,11 @@ void uarch::initialize(bool bWait)
 				{"Half-Life 1 Source Deathmatch/hl1mp/",{"hl1mp_pak_dir.vpk"}},
 				{"Half-Life 1 Source Deathmatch/hl2/",{"hl2_misc_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk",}},
 				{"Half-Life 1 Source Deathmatch/platform/",{"platform_misc_dir.vpk"}},
+
+				{"Portal 2/portal2/",{"pak01_dir.vpk"}},
+				{"Portal 2/portal2_dlc1/",{"pak01_dir.vpk"}},
+				{"Portal 2/portal2_dlc2/",{"pak01_dir.vpk"}},
+
 				{"Portal/portal/",{"portal_pak_dir.vpk"}},
 				{"team fortress 2/hl2/",{"hl2_misc_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk"}},
 				{"team fortress 2/tf/",{"tf2_misc_dir.vpk","tf2_sound_misc_dir.vpk","tf2_sound_vo_english_dir.vpk","tf2_textures_dir.vpk"}},
