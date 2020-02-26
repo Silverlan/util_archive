@@ -285,6 +285,8 @@ void uarch::initialize(bool bWait)
 				{"Portal 2/portal2_dlc1/",{"pak01_dir.vpk"}},
 				{"Portal 2/portal2_dlc2/",{"pak01_dir.vpk"}},
 
+				{"dota 2 beta/game/dota/",{"pak01_dir.vpk"}},
+
 				{"Portal/portal/",{"portal_pak_dir.vpk"}},
 				{"team fortress 2/hl2/",{"hl2_misc_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk"}},
 				{"team fortress 2/tf/",{"tf2_misc_dir.vpk","tf2_sound_misc_dir.vpk","tf2_sound_vo_english_dir.vpk","tf2_textures_dir.vpk"}},
@@ -343,7 +345,7 @@ void uarch::initialize(bool bWait)
 					fTraverseArchive(archiveDir.children.back(),d);
 				}
 			};
-			std::unordered_map<std::string,bool> loadedVpks;
+			std::unordered_set<std::string> loadedVpks;
 			for(auto &gi : gameList)
 			{
 				for(auto &steamPath : s_steamRootPaths)
@@ -361,9 +363,9 @@ void uarch::initialize(bool bWait)
 							continue;
 						auto fname = ufile::get_file_from_filename(vpk);
 						auto it = loadedVpks.find(fname);
-						if(it != loadedVpks.end())
+						if(it != loadedVpks.end() && ustring::compare(fname,"pak01_dir.vpk",false) == false) // pak01_dir is a common name across multiple Source Engine games, so it can appear multiple times
 							continue;
-						loadedVpks.insert(std::make_pair(fname,true));
+						loadedVpks.insert(fname);
 						s_hlArchives.push_back(archive);
 						fTraverseArchive(s_hlArchives.back().root,archive->GetRoot());
 					}
