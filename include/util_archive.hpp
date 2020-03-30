@@ -37,6 +37,7 @@ namespace uarch
 
 	// Expects path relative to "steamapps/common/"
 	DLLARCHLIB void add_source_engine_game_path(const std::string &path);
+	DLLARCHLIB void mount_workshop_addons(uint64_t appId);
 };
 
 #endif

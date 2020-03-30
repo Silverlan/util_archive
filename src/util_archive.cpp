@@ -213,6 +213,55 @@ static bool get_custom_steam_game_paths(const std::string &steamPath,std::vector
 #endif
 }
 
+static void traverse_vpk_archive(ArchiveData<hl::PArchive>::Item &archiveDir,const hl::Archive::Directory &dir)
+{
+	std::vector<std::string> files;
+	std::vector<hl::Archive::Directory> dirs;
+	dir.GetItems(files,dirs);
+	auto fConvertArchiveName = [](const std::string &f) {
+		auto archFile = normalize_path(f);
+		if(archFile.length() == 4 && archFile.substr(0,4) == "root")
+			archFile = archFile.substr(4);
+		if(archFile.length() > 4 && archFile.substr(0,5) == "root\\")
+			archFile = archFile.substr(5);
+		return archFile;
+	};
+	archiveDir.children.reserve(archiveDir.children.size() +files.size() +dirs.size());
+	for(auto &f : files)
+		archiveDir.children.push_back({fConvertArchiveName(f),false});
+	for(auto &d : dirs)
+	{
+		archiveDir.children.push_back({fConvertArchiveName(d.GetPath()),true});
+		traverse_vpk_archive(archiveDir.children.back(),d);
+	}
+}
+
+static void mount_workshop_addons(uint64_t appId)
+{
+	for(auto &steamPath : s_steamRootPaths)
+	{
+		auto path = steamPath +"/steamapps/workshop/content/" +std::to_string(appId) +"/";
+
+		std::vector<std::string> workshopAddonPaths;
+		FileManager::FindSystemFiles((path +"*").c_str(),nullptr,&workshopAddonPaths,true);
+		for(auto &workshopAddonPath : workshopAddonPaths)
+		{
+			auto absWorkshopAddonPath = path +workshopAddonPath +"/";
+			add_source_game_path(absWorkshopAddonPath);
+			std::vector<std::string> vpkFilePaths {};
+			FileManager::FindSystemFiles((absWorkshopAddonPath +"*.vpk").c_str(),&vpkFilePaths,nullptr,true);
+			for(auto &vpkFilePath : vpkFilePaths)
+			{
+				auto archive = hl::Archive::Create(absWorkshopAddonPath +vpkFilePath);
+				if(archive == nullptr)
+					continue;
+				s_hlArchives.push_back(archive);
+				traverse_vpk_archive(s_hlArchives.back().root,archive->GetRoot());
+			}
+		}
+	}
+}
+
 void uarch::initialize() {initialize(false);}
 void uarch::initialize(bool bWait)
 {
@@ -258,6 +307,8 @@ void uarch::initialize(bool bWait)
 				std::vector<std::string> vpks;
 			};
 			std::vector<GameInfo> gameList = {
+				{"Half-Life Alyx/game/hlvr/",{"pak01_dir.vpk"}},
+
 				{"SourceFilmmaker/game/workshop/",{}},
 				{"SourceFilmmaker/game/tf_movies/",{}},
 				{"SourceFilmmaker/game/tf/",{}},
@@ -323,28 +374,6 @@ void uarch::initialize(bool bWait)
 					add_source_game_path(gmodAddonPath +d +"/");
 			}
 
-			std::function<void(ArchiveData<hl::PArchive>::Item&,const hl::Archive::Directory&)> fTraverseArchive = nullptr;
-			fTraverseArchive = [&fTraverseArchive](ArchiveData<hl::PArchive>::Item &archiveDir,const hl::Archive::Directory &dir) {
-				std::vector<std::string> files;
-				std::vector<hl::Archive::Directory> dirs;
-				dir.GetItems(files,dirs);
-				auto fConvertArchiveName = [](const std::string &f) {
-					auto archFile = normalize_path(f);
-					if(archFile.length() == 4 && archFile.substr(0,4) == "root")
-						archFile = archFile.substr(4);
-					if(archFile.length() > 4 && archFile.substr(0,5) == "root\\")
-						archFile = archFile.substr(5);
-					return archFile;
-				};
-				archiveDir.children.reserve(archiveDir.children.size() +files.size() +dirs.size());
-				for(auto &f : files)
-					archiveDir.children.push_back({fConvertArchiveName(f),false});
-				for(auto &d : dirs)
-				{
-					archiveDir.children.push_back({fConvertArchiveName(d.GetPath()),true});
-					fTraverseArchive(archiveDir.children.back(),d);
-				}
-			};
 			std::unordered_set<std::string> loadedVpks;
 			for(auto &gi : gameList)
 			{
@@ -367,10 +396,23 @@ void uarch::initialize(bool bWait)
 							continue;
 						loadedVpks.insert(fname);
 						s_hlArchives.push_back(archive);
-						fTraverseArchive(s_hlArchives.back().root,archive->GetRoot());
+						traverse_vpk_archive(s_hlArchives.back().root,archive->GetRoot());
 					}
 				}
 			}
+
+			std::vector<uint64_t> appIds = {
+				250820, // Steam VR
+				1840, // Source Filmmaker
+				440, // Team-Fortress 2
+				730, // Counter-Strike Global Offensive
+				240, // Counter-Strike Source
+				362890, // Black Mesa
+				570, // Dota 2
+				4000 // Garry's Mod
+			};
+			for(auto appId : appIds)
+				::mount_workshop_addons(appId);
 
 #ifdef ENABLE_BETHESDA_FORMATS
 			// Oblivion
@@ -518,6 +560,12 @@ void uarch::initialize(bool bWait)
 		s_initThread->join();
 		s_initThread = nullptr;
 	}
+}
+
+void uarch::mount_workshop_addons(uint64_t appId)
+{
+	uarch::initialize(true);
+	::mount_workshop_addons(appId);
 }
 
 void uarch::add_source_engine_game_path(const std::string &path)
