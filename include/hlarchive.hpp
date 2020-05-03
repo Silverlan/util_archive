@@ -48,8 +48,10 @@ namespace hl
 		static std::shared_ptr<Archive> Create(const std::string &path);
 		std::shared_ptr<Stream> OpenFile(const std::string &fname);
 		Directory GetRoot() const;
+		void SetRootDirectory(const std::string &path);
 	private:
 		uint32_t m_uiPackage = std::numeric_limits<uint32_t>::max();
+		void *m_rootDir = nullptr;
 		bool Bind();
 	};
 	using PArchive = std::shared_ptr<Archive>;

@@ -32,12 +32,12 @@ namespace uarch
 	DLLARCHLIB VFilePtr load(const std::string &path,std::optional<std::string> *optOutSourcePath=nullptr);
 	DLLARCHLIB bool load(const std::string &path,std::vector<uint8_t> &data);
 	DLLARCHLIB void find_files(const std::string &path,std::vector<std::string> *files,std::vector<std::string> *dirs);
-	DLLARCHLIB void initialize();
+	DLLARCHLIB void set_verbose(bool verbose);
 	DLLARCHLIB void close();
 
-	// Expects path relative to "steamapps/common/"
-	DLLARCHLIB void add_source_engine_game_path(const std::string &path);
-	DLLARCHLIB void mount_workshop_addons(uint64_t appId);
+	struct GameMountInfo;
+	DLLARCHLIB bool mount_game(const GameMountInfo &mountInfo);
+	DLLARCHLIB void initialize();
 };
 
 #endif

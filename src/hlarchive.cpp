@@ -8,6 +8,7 @@
 #include <memory>
 #include <array>
 
+#pragma optimize("",off)
 hl::Archive::Stream::Stream(Archive &archive,HLDirectoryItem *item,HLStream *stream)
 	: m_archive(archive.shared_from_this()),m_item(item),m_stream(stream)
 {}
@@ -86,11 +87,17 @@ hl::Archive::Directory hl::Archive::GetRoot() const
 	return Directory(root);
 }
 
+void hl::Archive::SetRootDirectory(const std::string &path)
+{
+	auto *root = hlPackageGetRoot();
+	m_rootDir = hlFolderGetItemByPath(root,path.c_str(),HLFindType::HL_FIND_FOLDERS);
+}
+
 std::shared_ptr<hl::Archive::Stream> hl::Archive::OpenFile(const std::string &fname)
 {
 	if(Bind() == false)
 		return nullptr;
-	auto *root = hlPackageGetRoot();
+	auto *root = m_rootDir ? m_rootDir : hlPackageGetRoot();
 	auto *item = hlFolderGetItemByPath(root,fname.c_str(),HLFindType::HL_FIND_FILES);
 	if(item == nullptr)
 		return nullptr;
@@ -112,3 +119,4 @@ hl::Archive::~Archive()
 		hlDeletePackage(m_uiPackage);
 	}
 }
+#pragma optimize("",on)

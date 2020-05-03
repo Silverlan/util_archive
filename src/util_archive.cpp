@@ -3,12 +3,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "util_archive.hpp"
+#include "game_mount_info.hpp"
 #include "util_vdf.hpp"
 #include "hlarchive.hpp"
+#include "archive_data.hpp"
 #include <vector>
 #include <sharedutils/util.h>
 #include <sharedutils/util_string.h>
 #include <sharedutils/util_file.h>
+#include <sharedutils/util_path.hpp>
 #include <algorithm>
 #include <fsys/filesystem.h>
 #include <Wrapper.h>
@@ -36,577 +39,212 @@
 #endif
 
 #pragma optimize("",off)
+
+uarch::GameEngine uarch::engine_name_to_enum(const std::string &name)
+{
+	static std::unordered_map<std::string,uarch::GameEngine> engineNameToEnum {
+		{"source_engine",GameEngine::SourceEngine},
+		{"source2",GameEngine::Source2},
+#ifdef ENABLE_BETHESDA_FORMATS
+		{"gamebryo",GameEngine::Gamebryo},
+		{"creation_engine",GameEngine::CreationEngine},
+#endif
+		{"other",GameEngine::Other}
+	};
+	static_assert(umath::to_integral(uarch::GameEngine::Count) == 5);
+	auto it = engineNameToEnum.find(name);
+	return (it != engineNameToEnum.end()) ? it->second : GameEngine::Invalid;
+}
+
+std::string uarch::to_string(GameEngine engine)
+{
+	switch(engine)
+	{
+	case GameEngine::SourceEngine:
+		return "source_engine";
+	case GameEngine::Source2:
+		return "source2";
+#ifdef ENABLE_BETHESDA_FORMATS
+	case GameEngine::Gamebryo:
+		return "gamebryo";
+	case GameEngine::CreationEngine:
+		return "creation_engine";
+#endif
+	case GameEngine::Other:
+		return "other";
+	}
+	static_assert(umath::to_integral(uarch::GameEngine::Count) == 5);
+	return "invalid";
+}
+
+uarch::BaseEngineSettings *uarch::GameMountInfo::SetEngine(GameEngine engine)
+{
+	switch(engine)
+	{
+	case GameEngine::SourceEngine:
+		engineSettings = std::make_unique<SourceEngineSettings>();
+		break;
+	case GameEngine::Source2:
+		engineSettings = std::make_unique<Source2Settings>();
+		break;
+#ifdef ENABLE_BETHESDA_FORMATS
+	case GameEngine::Gamebryo:
+		engineSettings = std::make_unique<GamebryoSettings>();
+		break;
+	case GameEngine::CreationEngine:
+		engineSettings = std::make_unique<CreationEngineSettings>();
+		break;
+#endif
+	}
+	gameEngine = engine;
+	return engineSettings.get();
+}
+
 namespace uarch
 {
+	void setup();
 	void initialize(bool bWait);
-};
-
-static std::string normalize_path(const std::string &path)
-{
-	auto cpy = path;
-	ustring::to_lower(cpy);
-	cpy = FileManager::GetNormalizedPath(cpy);
-	return cpy;
-}
-
-static std::string get_hl_path(const std::string &path)
-{
-	auto npath = path;
-	auto bSound = (ustring::substr(npath,0,7) == "sounds\\") ? true : false;
-	if(bSound == true)
-		npath = "sound\\" +npath.substr(7);
-	return npath;
-}
-
-static std::string get_beth_path(const std::string &path)
-{
-	auto npath = path;
-	auto bSound = (ustring::substr(npath,0,7) == "sounds\\") ? true : false;
-	if(bSound == true)
-		npath = "sound\\" +npath.substr(7);
-	else
+	class BaseMountedGame
 	{
-		auto bMaterial = (ustring::substr(npath,0,10) == "materials\\") ? true : false;
-		if(bMaterial == true)
-			npath = "textures\\" +npath.substr(10);
-		else
-		{
-			auto bModel = (ustring::substr(npath,0,7) == "models\\") ? true : false;
-			if(bModel == true)
-				npath = npath.substr(7);
-		}
-	}
-	return npath;
-}
+	public:
+		const std::vector<util::Path> &GetMountedPaths() const;
+		const std::vector<ArchiveFileTable> &GetArchives() const;
+		void FindFiles(const std::string &fpath,std::vector<std::string> *optOutFiles,std::vector<std::string> *optOutDirs);
+		bool Load(const std::string &path,std::vector<uint8_t> &data);
+		VFilePtr Load(const std::string &path,std::optional<std::string> *optOutSourcePath=nullptr);
 
-template<class THandle>
-	struct ArchiveData
-{
-	struct Item
-	{
-		Item(const std::string &name,bool bDir);
-		std::vector<Item> children;
-		std::string name;
-		void Add(const std::string &fpath,bool bDir);
-		bool directory = false;
+		void MountPath(const std::string &path);
+		ArchiveFileTable &AddArchiveFileTable(const std::shared_ptr<void> &phandle);
+	protected:
+		BaseMountedGame(GameEngine gameEngine);
 	private:
-		void Add(const std::string *path,uint32_t dirCount,bool bDir);
+		GameEngine m_gameEngine = GameEngine::Invalid;
+		std::vector<util::Path> m_mountedPaths {};
+		std::vector<ArchiveFileTable> m_archives {};
 	};
-	ArchiveData(const THandle &phandle);
-	THandle handle = nullptr;
-	Item root = {"",true};
+
+	class SourceEngineMountedGame
+		: public BaseMountedGame
+	{
+	public:
+		SourceEngineMountedGame(GameEngine gameEngine)
+			: BaseMountedGame{gameEngine}
+		{}
+	};
+
+	class Source2MountedGame
+		: public SourceEngineMountedGame
+	{
+	public:
+		Source2MountedGame(GameEngine gameEngine)
+			: SourceEngineMountedGame{gameEngine}
+		{}
+	};
+
+#ifdef ENABLE_BETHESDA_FORMATS
+	class GamebryoMountedGame
+		: public BaseMountedGame
+	{
+	public:
+		GamebryoMountedGame(GameEngine gameEngine)
+			: BaseMountedGame{gameEngine}
+		{}
+	};
+
+	class CreationEngineMountedGame
+		: public BaseMountedGame
+	{
+	public:
+		CreationEngineMountedGame(GameEngine gameEngine)
+			: BaseMountedGame{gameEngine}
+		{}
+	};
+#endif
+
+	class GameMountManager
+	{
+	public:
+		GameMountManager()=default;
+		GameMountManager(const GameMountManager&)=delete;
+		GameMountManager &operator=(const GameMountManager&)=delete;
+		~GameMountManager();
+		bool MountGame(const GameMountInfo &mountInfo);
+		void Start();
+		void WaitUntilInitializationComplete();
+		void SetVerbose(bool verbose);
+		bool IsVerbose() const;
+
+		void InitializeGame(const GameMountInfo &mountInfo);
+		const std::vector<std::unique_ptr<BaseMountedGame>> &GetMountedGames() const;
+
+		static std::string GetNormalizedPath(const std::string &path);
+		static std::string GetNormalizedSourceEnginePath(const std::string &path);
+#ifdef ENABLE_BETHESDA_FORMATS
+		static std::string GetNormalizedGamebryoPath(const std::string &path);
+#endif
+	private:
+		static void InitializeArchiveFileTable(uarch::ArchiveFileTable::Item &archiveDir,const hl::Archive::Directory &dir);
+
+		std::optional<util::Path> FindSteamGamePath(const std::string &relPath);
+		void MountWorkshopAddons(BaseMountedGame &game,SteamSettings::AppId appId);
+
+		std::vector<GameMountInfo> m_mountedGameInfos {};
+		std::vector<std::unique_ptr<BaseMountedGame>> m_mountedGames {};
+
+		std::thread m_loadThread;
+		bool m_initialized = false;
+		std::atomic<bool> m_cancel = false;
+		std::atomic<bool> m_verbose = false;
+
+		std::vector<util::Path> m_steamRootPaths;
+		std::unordered_set<std::string> m_mountedVPKArchives {};
+	};
 };
-template<class THandle>
-	ArchiveData<THandle>::Item::Item(const std::string &pname,bool pbDir)
-		: name(pname),directory(pbDir)
+
+uarch::BaseMountedGame::BaseMountedGame(GameEngine gameEngine)
+	: m_gameEngine{gameEngine}
 {}
-template<class THandle>
-	void ArchiveData<THandle>::Item::Add(const std::string &fpath,bool bDir)
+void uarch::BaseMountedGame::MountPath(const std::string &path)
 {
-	std::vector<std::string> pathList {};
-	ustring::explode(fpath,"\\",pathList);
-	if(pathList.empty() == true)
-		return;
-	Add(pathList.data(),pathList.size() -1,bDir);
+	if(m_mountedPaths.size() == m_mountedPaths.capacity())
+		m_mountedPaths.reserve(m_mountedPaths.size() *1.5f +100);
+	m_mountedPaths.push_back(path);
 }
-template<class THandle>
-	void ArchiveData<THandle>::Item::Add(const std::string *path,uint32_t dirCount,bool bDir)
+uarch::ArchiveFileTable &uarch::BaseMountedGame::AddArchiveFileTable(const std::shared_ptr<void> &phandle)
 {
-	auto it = std::find_if(children.begin(),children.end(),[path](const Item &item) {
-		return (item.name == *path) ? true : false;
-	});
-	if(it == children.end())
-	{
-		children.push_back({*path,(dirCount > 0) ? true : bDir});
-		it = children.end() -1;
-	}
-	if(dirCount == 0)
-		return;
-	it->Add(path +1,dirCount -1,bDir);
+	if(m_archives.size() == m_archives.capacity())
+		m_archives.reserve(m_archives.size() *1.5 +50);
+	m_archives.push_back({phandle});
+	return m_archives.back();
 }
-template<class THandle>
-	ArchiveData<THandle>::ArchiveData::ArchiveData(const THandle &phandle)
-		: handle(phandle)
-{}
 
-static bool s_bInitialized = false;
+const std::vector<util::Path> &uarch::BaseMountedGame::GetMountedPaths() const {return m_mountedPaths;}
+const std::vector<uarch::ArchiveFileTable> &uarch::BaseMountedGame::GetArchives() const {return m_archives;}
+
+void uarch::BaseMountedGame::FindFiles(const std::string &fpath,std::vector<std::string> *optOutFiles,std::vector<std::string> *optOutDirs)
+{
+	auto npath = fpath;
+	switch(m_gameEngine)
+	{
+	case GameEngine::SourceEngine:
+	case GameEngine::Source2:
+		npath = GameMountManager::GetNormalizedSourceEnginePath(npath);
+		break;
 #ifdef ENABLE_BETHESDA_FORMATS
-static std::vector<ArchiveData<bsa_handle>> s_bsaHandles {};
-static std::vector<ArchiveData<std::shared_ptr<BA2>>> s_ba2Handles {};
+	case GameEngine::Gamebryo:
+	case GameEngine::CreationEngine:
+		npath = GameMountManager::GetNormalizedGamebryoPath(npath);
+		break;
 #endif
-static std::vector<ArchiveData<hl::PArchive>> s_hlArchives {};
-
-static std::unique_ptr<std::thread> s_initThread = nullptr;
-static std::atomic<bool> s_threadCancel = {false};
-
-static std::vector<std::string> s_steamRootPaths;
-static std::vector<std::string> s_sourcePaths;
-static void add_source_game_path(const std::string &path)
-{
-#if UARCH_VERBOSE == 1
-	std::cout<<"[uarch] Adding source game path '"<<path<<"'..."<<std::endl;
-#endif
-	auto cpath = FileManager::GetCanonicalizedPath(path);
-	if(FileManager::IsSystemDir(cpath) == false)
-		return;
-	auto it = std::find(s_sourcePaths.begin(),s_sourcePaths.end(),cpath);
-	if(it != s_sourcePaths.end())
-		return;
-	s_sourcePaths.push_back(cpath);
-#if UARCH_VERBOSE == 1
-	std::cout<<"[uarch] Added path successfully!"<<std::endl;
-#endif
-}
-
-static bool get_custom_steam_game_paths(const std::string &steamPath,std::vector<std::string> &paths)
-{
-	return vdf::get_external_steam_locations(steamPath,paths);
-#if 0 // Obsolete!
-#if UARCH_VERBOSE == 1
-	std::cout<<"[uarch] Looking for custom steam game paths in '"<<(steamPath +"/steamapps/libraryfolders.vdf")<<"'..."<<std::endl;
-#endif
-	auto f = FileManager::OpenSystemFile((steamPath +"/steamapps/libraryfolders.vdf").c_str(),"r");
-#if UARCH_VERBOSE == 1
-	if(f == nullptr)
-		std::cout<<"[uarch] libraryfolders.vdf not found!"<<std::endl;
-#endif
-	if(f == nullptr)
-		return false;
-	while(f->Eof() == false)
-	{
-		auto l = f->ReadLine();
-		ustring::remove_quotes(l);
-		if(ustring::compare(l,"LibraryFolders",false) == true)
-		{
-			while(f->ReadChar() != '{')
-			{
-				if(f->Eof())
-					return false;
-			}
-			auto content = f->ReadUntil("}");
-			std::vector<std::string> lines;
-			ustring::explode(content,"\n",lines);
-			for(auto &l : lines)
-			{
-				ustring::remove_whitespace(l);
-					
-				std::vector<std::string> keyVal;
-				ustring::explode_whitespace(l,keyVal);
-				if(keyVal.size() < 2)
-					continue;
-				auto &k = keyVal.at(0);
-				auto &v = keyVal.at(1);
-				ustring::remove_quotes(k);
-				ustring::remove_quotes(v);
-				auto id = atoi(k.c_str());
-				if(id == 0)
-					continue;
-#if UARCH_VERBOSE == 1
-				std::cout<<"[uarch] Found custom path: '"<<v<<"'"<<std::endl;
-#endif
-				paths.push_back(v);
-			}
-			break;
-		}
 	}
-	return true;
-#endif
-}
+	for(auto &path : GetMountedPaths())
+		FileManager::FindSystemFiles((path.GetString() +npath).c_str(),optOutFiles,optOutDirs);
 
-static void traverse_vpk_archive(ArchiveData<hl::PArchive>::Item &archiveDir,const hl::Archive::Directory &dir)
-{
-	std::vector<std::string> files;
-	std::vector<hl::Archive::Directory> dirs;
-	dir.GetItems(files,dirs);
-	auto fConvertArchiveName = [](const std::string &f) {
-		auto archFile = normalize_path(f);
-		if(archFile.length() == 4 && archFile.substr(0,4) == "root")
-			archFile = archFile.substr(4);
-		if(archFile.length() > 4 && archFile.substr(0,5) == "root\\")
-			archFile = archFile.substr(5);
-		return archFile;
-	};
-	archiveDir.children.reserve(archiveDir.children.size() +files.size() +dirs.size());
-	for(auto &f : files)
-		archiveDir.children.push_back({fConvertArchiveName(f),false});
-	for(auto &d : dirs)
-	{
-		archiveDir.children.push_back({fConvertArchiveName(d.GetPath()),true});
-		traverse_vpk_archive(archiveDir.children.back(),d);
-	}
-}
-
-static void mount_workshop_addons(uint64_t appId)
-{
-	for(auto &steamPath : s_steamRootPaths)
-	{
-		auto path = steamPath +"/steamapps/workshop/content/" +std::to_string(appId) +"/";
-
-		std::vector<std::string> workshopAddonPaths;
-		FileManager::FindSystemFiles((path +"*").c_str(),nullptr,&workshopAddonPaths,true);
-		for(auto &workshopAddonPath : workshopAddonPaths)
-		{
-			auto absWorkshopAddonPath = path +workshopAddonPath +"/";
-			add_source_game_path(absWorkshopAddonPath);
-			std::vector<std::string> vpkFilePaths {};
-			FileManager::FindSystemFiles((absWorkshopAddonPath +"*.vpk").c_str(),&vpkFilePaths,nullptr,true);
-			for(auto &vpkFilePath : vpkFilePaths)
-			{
-				auto archive = hl::Archive::Create(absWorkshopAddonPath +vpkFilePath);
-				if(archive == nullptr)
-					continue;
-				s_hlArchives.push_back(archive);
-				traverse_vpk_archive(s_hlArchives.back().root,archive->GetRoot());
-			}
-		}
-	}
-}
-
-void uarch::initialize() {initialize(false);}
-void uarch::initialize(bool bWait)
-{
-	if(s_bInitialized == true)
-	{
-		if(s_initThread != nullptr)
-			s_initThread->join();
-		s_initThread = nullptr;
-		return;
-	}
-	s_bInitialized = true;
-
-	s_initThread = std::make_unique<std::thread>([]() {
-		hlInitialize();
-#ifdef ENABLE_BETHESDA_FORMATS
-		std::vector<std::string> bsaPaths {};
-		std::vector<std::string> ba2Paths {};
-#endif
-		std::string rootSteamPath;
-#ifdef _WIN32
-		if(util::get_registry_key_value(util::HKey::CurrentUser,"SOFTWARE\\Valve\\Steam","SteamPath",rootSteamPath) == true)
-#else
-		auto *pHomePath = getenv("HOME");
-		if(pHomePath != nullptr)
-			rootSteamPath = pHomePath;
-		else
-			rootSteamPath = "";
-		rootSteamPath += "/.local/share/Steam";
-#endif
-		{
-#if UARCH_VERBOSE == 1
-			std::cout<<"[uarch] Found root steam path: '"<<rootSteamPath<<"'"<<std::endl;
-#endif
-			s_steamRootPaths = {rootSteamPath};
-			get_custom_steam_game_paths(rootSteamPath,s_steamRootPaths);
-			// Source Games
-			struct GameInfo
-			{
-				GameInfo(const std::string &_path,const std::vector<std::string> &_vpks)
-					: path(_path),vpks(_vpks)
-				{}
-				std::string path;
-				std::vector<std::string> vpks;
-			};
-			std::vector<GameInfo> gameList = {
-				{"Half-Life Alyx/game/hlvr/",{"pak01_dir.vpk"}},
-
-				{"SourceFilmmaker/game/workshop/",{}},
-				{"SourceFilmmaker/game/tf_movies/",{}},
-				{"SourceFilmmaker/game/tf/",{}},
-				{"SourceFilmmaker/game/hl2/",{}},
-				{"SourceFilmmaker/game/left4dead2_movies/",{}},
-				{"SourceFilmmaker/game/platform/",{}},
-				{"SourceFilmmaker/game/usermod/",{}},
-				{"half-life 2/ep2/",{"ep2_pak_dir.vpk"}},
-				{"half-life 2/episodic/",{"ep1_pak_dir.vpk"}},
-				{"half-life 2/hl2/",{"hl2_misc_dir.vpk","hl2_pak_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk"}},
-				{"counter-strike source/cstrike/",{"cstrike_pak_dir.vpk"}},
-				{"day of defeat source/dod/",{"dod_pak_dir.vpk"}},
-				{"GarrysMod/garrysmod/",{"fallbacks_dir.vpk","garrysmod_dir.vpk"}},
-				{"GarrysMod/sourceengine/",{"hl2_misc_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk"}},
-				{"half-life 2/hl1/",{"hl1_pak_dir.vpk"}},
-				{"half-life 2/hl1_hd/",{"hl1_hd_pak_dir.vpk"}},
-				{"half-life 2/lostcoast/",{"lostcoast_pak_dir.vpk"}},
-				{"half-life 2 deathmatch/hl2mp/",{"hl2mp_pak_dir.vpk"}},
-				{"Half-Life 1 Source Deathmatch/hl1/",{"hl1_pak_dir.vpk"}},
-				{"Half-Life 1 Source Deathmatch/hl1mp/",{"hl1mp_pak_dir.vpk"}},
-				{"Half-Life 1 Source Deathmatch/hl2/",{"hl2_misc_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk",}},
-				{"Half-Life 1 Source Deathmatch/platform/",{"platform_misc_dir.vpk"}},
-
-				{"Portal 2/portal2/",{"pak01_dir.vpk"}},
-				{"Portal 2/portal2_dlc1/",{"pak01_dir.vpk"}},
-				{"Portal 2/portal2_dlc2/",{"pak01_dir.vpk"}},
-
-				{"dota 2 beta/game/dota/",{"pak01_dir.vpk"}},
-
-				{"Portal/portal/",{"portal_pak_dir.vpk"}},
-				{"team fortress 2/hl2/",{"hl2_misc_dir.vpk","hl2_sound_misc_dir.vpk","hl2_sound_vo_english_dir.vpk","hl2_textures_dir.vpk"}},
-				{"team fortress 2/tf/",{"tf2_misc_dir.vpk","tf2_sound_misc_dir.vpk","tf2_sound_vo_english_dir.vpk","tf2_textures_dir.vpk"}},
-				{"Dark Messiah Might and Magic Single Player/vpks/",{"depot_2101_dir.vpk","depot_2102_dir.vpk","depot_2103_dir.vpk","depot_2104_dir.vpk","depot_2105_dir.vpk","depot_2106_dir.vpk","depot_2107_dir.vpk","depot_2108_dir.vpk","depot_2109_dir.vpk"}},
-				{"Dark Messiah Might and Magic Multi-Player/vpks/",{"depot_2131_dir.vpk","depot_2132_dir.vpk","depot_2133_dir.vpk","depot_2134_dir.vpk","depot_2135_dir.vpk","depot_2136_dir.vpk"}},
-				{"SinEpisodes Emergence/vpks/",{"depot_1301_dir.vpk","depot_1302_dir.vpk","depot_1303_dir.vpk","depot_1304_dir.vpk","depot_1305_dir.vpk","depot_1308_dir.vpk"}},
-				{"Black Mesa/bms/",{"bms_maps_dir.vpk","bms_materials_dir.vpk","bms_misc_dir.vpk","bms_models_dir.vpk","bms_sound_vo_english_dir.vpk","bms_sounds_misc_dir.vpk","bms_textures_dir.vpk"}}
-			};
-
-			// Determine game paths
-			s_sourcePaths.reserve((gameList.size() +2) *s_steamRootPaths.size());
-			for(auto &steamPath : s_steamRootPaths)
-			{
-				for(auto &gi : gameList)
-				{
-					add_source_game_path(steamPath +"/steamapps/common/" +gi.path);
-
-					auto subPath = gi.path;
-					subPath.pop_back();
-					subPath = ufile::get_path_from_filename(subPath);
-					add_source_game_path(steamPath +"/steamapps/common/" +subPath);
-				}
-				add_source_game_path(steamPath +"/steamapps/common/Half-Life 1 Source Deathmatch/hl1/");
-				add_source_game_path(steamPath +"/steamapps/common/Half-Life 1 Source Deathmatch/hl2/");
-			}
-
-			// Determine gmod addon paths
-			for(auto &steamPath : s_steamRootPaths)
-			{
-				std::string gmodAddonPath = steamPath +"/steamapps/common/GarrysMod/garrysmod/addons/";
-				std::vector<std::string> addonDirs;
-				FileManager::FindSystemFiles((gmodAddonPath +"*").c_str(),nullptr,&addonDirs);
-				for(auto &d : addonDirs)
-					add_source_game_path(gmodAddonPath +d +"/");
-			}
-
-			std::unordered_set<std::string> loadedVpks;
-			for(auto &gi : gameList)
-			{
-				for(auto &steamPath : s_steamRootPaths)
-				{
-					auto path = steamPath +"/steamapps/common/" +gi.path;
-					for(auto &vpk : gi.vpks)
-					{
-						if(s_threadCancel == true)
-							break;
-#if UARCH_VERBOSE == 1
-						std::cout<<"[uarch] Mounting source VPK archive '"<<(path +vpk)<<"'..."<<std::endl;
-#endif
-						auto archive = hl::Archive::Create(path +vpk);
-						if(archive == nullptr)
-							continue;
-						auto fname = ufile::get_file_from_filename(vpk);
-						auto it = loadedVpks.find(fname);
-						if(it != loadedVpks.end() && ustring::compare(fname,"pak01_dir.vpk",false) == false) // pak01_dir is a common name across multiple Source Engine games, so it can appear multiple times
-							continue;
-						loadedVpks.insert(fname);
-						s_hlArchives.push_back(archive);
-						traverse_vpk_archive(s_hlArchives.back().root,archive->GetRoot());
-					}
-				}
-			}
-
-			std::vector<uint64_t> appIds = {
-				250820, // Steam VR
-				1840, // Source Filmmaker
-				440, // Team-Fortress 2
-				730, // Counter-Strike Global Offensive
-				240, // Counter-Strike Source
-				362890, // Black Mesa
-				570, // Dota 2
-				4000 // Garry's Mod
-			};
-			for(auto appId : appIds)
-				::mount_workshop_addons(appId);
-
-#ifdef ENABLE_BETHESDA_FORMATS
-			// Oblivion
-			for(auto &bsa : {
-				"DLCBattlehornCastle.bsa",
-				"DLCFrostcrag.bsa",
-				"DLCHorseArmor.bsa",
-				"DLCOrrery.bsa",
-				"DLCShiveringIsles - Meshes.bsa",
-				"DLCShiveringIsles - Sounds.bsa",
-				"DLCShiveringIsles - Textures.bsa",
-				"DLCShiveringIsles - Voices.bsa",
-				"DLCThievesDen.bsa",
-				"DLCVileLair.bsa",
-				"Knights.bsa",
-				"Oblivion - Meshes.bsa",
-				"Oblivion - Misc.bsa",
-				"Oblivion - Sounds.bsa",
-				"Oblivion - Textures - Compressed.bsa",
-				"Oblivion - Voices1.bsa",
-				"Oblivion - Voices2.bsa"
-			})
-			{
-				for(auto &steamPath : s_steamRootPaths)
-					bsaPaths.push_back(steamPath +"/steamapps/common/Oblivion/Data/" +bsa);
-			}
-
-			// Fallout 3
-			// TODO
-
-			// Fallout New Vegas
-			for(auto &bsa : {
-				"DeadMoney - Main.bsa",
-				"DeadMoney - Sounds.bsa",
-				"Fallout - Meshes.bsa",
-				"Fallout - Misc.bsa",
-				"Fallout - Sound.bsa",
-				"Fallout - Textures.bsa",
-				"Fallout - Textures2.bsa",
-				"Fallout - Voices1.bsa",
-				"GunRunnersArsenal - Main.bsa",
-				"GunRunnersArsenal - Sounds.bsa",
-				"HonestHearts - Main.bsa",
-				"HonestHearts - Sounds.bsa",
-				"LonesomeRoad - Main.bsa",
-				"LonesomeRoad - Sounds.bsa",
-				"OldWorldBlues - Main.bsa",
-				"OldWorldBlues - Sounds.bsa",
-				"Update.bsa"
-			})
-			{
-				for(auto &steamPath : s_steamRootPaths)
-					bsaPaths.push_back(steamPath +"/steamapps/common/Fallout New Vegas/Data/" +bsa);
-			}
-
-			// Fallout 4
-			for(auto &ba2 : {
-				"Fallout4 - Animations.ba2",
-				"Fallout4 - Interface.ba2",
-				"Fallout4 - Materials.ba2",
-				"Fallout4 - Meshes.ba2",
-				//"Fallout4 - MeshesExtra.ba2",
-				"Fallout4 - Misc.ba2",
-				"Fallout4 - Nvflex.ba2",
-				"Fallout4 - Shaders.ba2",
-				"Fallout4 - Sounds.ba2",
-				"Fallout4 - Startup.ba2",
-				"Fallout4 - Textures1.ba2",
-				"Fallout4 - Textures2.ba2",
-				"Fallout4 - Textures3.ba2",
-				"Fallout4 - Textures4.ba2",
-				"Fallout4 - Textures5.ba2",
-				"Fallout4 - Textures6.ba2",
-				"Fallout4 - Textures7.ba2",
-				"Fallout4 - Textures8.ba2",
-				"Fallout4 - Textures9.ba2",
-				"Fallout4 - Voices.ba2"
-			})
-			{
-				for(auto &steamPath : s_steamRootPaths)
-					ba2Paths.push_back(steamPath +"/steamapps/common/Fallout 4/Data/" +ba2);
-			}
-#endif
-		}
-
-#ifdef ENABLE_BETHESDA_FORMATS
-		s_bsaHandles.reserve(bsaPaths.size());
-		for(auto &path : bsaPaths)
-		{
-			if(s_threadCancel == true)
-				break;
-			bsa_handle hBsa = nullptr;
-#if UARCH_VERBOSE == 1
-			std::cout<<"[uarch] Mounting BSA archive '"<<path<<"'..."<<std::endl;
-#endif
-			auto r = bsa_open(&hBsa,path.c_str());
-			if(r != LIBBSA_OK)
-				continue;
-			s_bsaHandles.push_back(hBsa);
-			auto &archData = s_bsaHandles.back();
-			auto &assets = bsa_get_raw_assets(hBsa);
-			for(auto &asset : assets)
-				archData.root.Add(get_beth_path(normalize_path(asset.path)),false);
-		}
-
-		s_ba2Handles.reserve(ba2Paths.size());
-		for(auto &path : ba2Paths)
-		{
-			if(s_threadCancel == true)
-				break;
-#if UARCH_VERBOSE == 1
-			std::cout<<"[uarch] Mounting BA2 archive '"<<path<<"'..."<<std::endl;
-#endif
-			auto ba2 = std::make_shared<BA2>();
-			try
-			{
-			if(ba2->Open(path.c_str()) == false)
-				continue;
-			}
-			catch(const std::exception &e)
-			{
-#if UARCH_VERBOSE == 1
-			std::cout<<"[uarch] Exception: '"<<e.what()<<"'!"<<std::endl;
-			break;
-#endif
-			}
-			s_ba2Handles.push_back(ba2);
-			auto &archData = s_ba2Handles.back();
-#if UARCH_VERBOSE == 1
-			std::cout<<"[uarch] Adding archive paths...!"<<std::endl;
-#endif
-			for(auto &asset : ba2->nameTable)
-				archData.root.Add(get_beth_path(normalize_path(asset)),false);
-#if UARCH_VERBOSE == 1
-			std::cout<<"[uarch] Done!"<<std::endl;
-#endif
-		}
-#endif
-#if UARCH_VERBOSE == 1
-		std::cout<<"[uarch] Mounting complete!"<<std::endl;
-#endif
-	});
-	if(bWait == true)
-	{
-		s_initThread->join();
-		s_initThread = nullptr;
-	}
-}
-
-void uarch::mount_workshop_addons(uint64_t appId)
-{
-	uarch::initialize(true);
-	::mount_workshop_addons(appId);
-}
-
-void uarch::add_source_engine_game_path(const std::string &path)
-{
-	uarch::initialize(true);
-	auto npath = path;
-	if(npath.empty() == false && npath.back() != '/')
-		npath += '/';
-	for(auto &steamPath : s_steamRootPaths)
-		add_source_game_path(steamPath +"/steamapps/common/" +npath);
-}
-
-void uarch::close()
-{
-	s_threadCancel = true;
-	if(s_initThread != nullptr && s_initThread->joinable())
-		s_initThread->join();
-#ifdef ENABLE_BETHESDA_FORMATS
-	for(auto &hBsa : s_bsaHandles)
-		bsa_close(hBsa.handle);
-	s_bsaHandles.clear();
-#endif
-
-	hlShutdown();
-}
-
-void uarch::find_files(const std::string &fpath,std::vector<std::string> *files,std::vector<std::string> *dirs)
-{
-	initialize(true);
-
-	auto hlPath = get_hl_path(fpath);
-	for(auto &p : s_sourcePaths)
-		FileManager::FindSystemFiles((p +hlPath).c_str(),files,dirs);
-
-	auto npath = normalize_path(fpath);
+	npath = GameMountManager::GetNormalizedPath(npath);
 	const auto fSearchArchive = 
-		[files,dirs,&npath](const auto &data,std::string(*fPathConv)(const std::string&)) {
-		auto archPath = fPathConv(npath);
-		auto path = ufile::get_path_from_filename(archPath);
-		std::vector<std::string> pathList;
-		ustring::explode(archPath,"\\",pathList);
+		[optOutFiles,optOutDirs,&npath](const auto &data) {
+		util::Path archPath {npath};
+		auto pathList = archPath.ToComponents();
 		auto itBegin = pathList.begin();
 		auto itEnd = pathList.end();
 		for(auto &arch : data)
@@ -623,13 +261,13 @@ void uarch::find_files(const std::string &fpath,std::vector<std::string> *files,
 							continue;
 						if(child.directory == false)
 						{
-							if(files != nullptr)
-								files->push_back(child.name);
+							if(optOutFiles != nullptr)
+								optOutFiles->push_back(child.name);
 						}
 						else
 						{
-							if(dirs != nullptr)
-								dirs->push_back(child.name);
+							if(optOutDirs != nullptr)
+								optOutDirs->push_back(child.name);
 						}
 					}
 				}
@@ -645,84 +283,599 @@ void uarch::find_files(const std::string &fpath,std::vector<std::string> *files,
 			}
 		}
 	};
-	fSearchArchive(s_hlArchives,get_hl_path);
-#ifdef ENABLE_BETHESDA_FORMATS
-	fSearchArchive(s_bsaHandles,get_beth_path);
-	fSearchArchive(s_ba2Handles,get_beth_path);
-#endif
+	fSearchArchive(m_archives);
 }
-
-VFilePtr uarch::load(const std::string &path,std::optional<std::string> *optOutSourcePath)
+VFilePtr uarch::BaseMountedGame::Load(const std::string &fileName,std::optional<std::string> *optOutSourcePath)
 {
-	auto hlPath = get_hl_path(path);
-	if(optOutSourcePath)
-		*optOutSourcePath = {};
-	for(auto &p : s_sourcePaths)
+	auto npath = fileName;
+	switch(m_gameEngine)
 	{
-		auto f = FileManager::OpenSystemFile((p +hlPath).c_str(),"rb");
-		if(f != nullptr)
+	case GameEngine::SourceEngine:
+	case GameEngine::Source2:
+		npath = GameMountManager::GetNormalizedSourceEnginePath(npath);
+		break;
+#ifdef ENABLE_BETHESDA_FORMATS
+	case GameEngine::Gamebryo:
+	case GameEngine::CreationEngine:
+		npath = GameMountManager::GetNormalizedGamebryoPath(npath);
+		break;
+#endif
+	}
+
+	for(auto &path : GetMountedPaths())
+	{
+		auto filePath = path;
+		filePath += npath;
+		auto f = FileManager::OpenSystemFile(filePath.GetString().c_str(),"rb");
+		if(f)
 		{
 			if(optOutSourcePath)
-				*optOutSourcePath = p +hlPath;
+				*optOutSourcePath = filePath.GetString();
 			return f;
 		}
 	}
 	auto data = std::make_shared<std::vector<uint8_t>>();
-	if(load(path,*data) == false)
+	if(Load(fileName,*data) == false)
 		return nullptr;
 	if(optOutSourcePath)
-		*optOutSourcePath = path;
-	FileManager::AddVirtualFile(path,data);
-	return FileManager::OpenFile(path.c_str(),"rb");
+		*optOutSourcePath = npath;
+	FileManager::AddVirtualFile(npath,data);
+	return FileManager::OpenFile(npath.c_str(),"rb");
+}
+bool uarch::BaseMountedGame::Load(const std::string &fileName,std::vector<uint8_t> &data)
+{
+	initialize(true);
+
+	switch(m_gameEngine)
+	{
+	case GameEngine::SourceEngine:
+	case GameEngine::Source2:
+	{
+		auto srcPath = GameMountManager::GetNormalizedSourceEnginePath(fileName);
+		for(auto &archive : m_archives)
+		{
+			auto pArchive = std::static_pointer_cast<hl::Archive>(archive.handle);
+			auto stream = pArchive->OpenFile(srcPath);
+			if(stream == nullptr)
+				continue;
+			if(stream->Read(data) == true)
+				return true;
+		}
+		break;
+	}
+#ifdef ENABLE_BETHESDA_FORMATS
+	case GameEngine::Gamebryo:
+	{
+		auto gamebyroPath = GameMountManager::GetNormalizedGamebryoPath(fileName);
+		for(auto &archive : m_archives)
+		{
+			auto bsaHandle = std::static_pointer_cast<bsa_handle>(archive.handle);
+			bool result;
+			auto r = bsa_contains_asset(*bsaHandle,gamebyroPath.c_str(),&result);
+			if(r != LIBBSA_OK || result == false)
+				continue;
+			const uint8_t *pdata = nullptr;
+			std::size_t size = 0;
+			r = bsa_extract_asset_to_memory(*bsaHandle,gamebyroPath.c_str(),&pdata,&size);
+			if(r != LIBBSA_OK)
+				continue;
+			data.resize(size);
+			memcpy(data.data(),pdata,size);
+			return true;
+		}
+		break;
+	}
+	case GameEngine::CreationEngine:
+	{
+		auto creationPath = GameMountManager::GetNormalizedGamebryoPath(fileName);
+		for(auto &archive : m_archives)
+		{
+			auto ba2Handle = std::static_pointer_cast<BA2>(archive.handle);
+			auto it = std::find_if(ba2Handle->nameTable.begin(),ba2Handle->nameTable.end(),[&creationPath](const std::string &other) {
+				return ustring::compare(other,creationPath,false);
+			});
+			if(it == ba2Handle->nameTable.end())
+				continue;
+			data.clear();
+			if(ba2Handle->Extract(it -ba2Handle->nameTable.begin(),data) != 1)
+				continue;
+			return true;
+		}
+		break;
+	}
+#endif
+	}
+	return false;
+}
+
+uarch::GameMountManager::~GameMountManager()
+{
+	m_cancel = true;
+	if(m_loadThread.joinable())
+		m_loadThread.join();
+	hlShutdown();
+}
+
+std::optional<util::Path> uarch::GameMountManager::FindSteamGamePath(const std::string &relPath)
+{
+	if(IsVerbose())
+		std::cout<<"[uarch] Searching for steam game path '"<<relPath<<"'..."<<std::endl;
+
+	for(auto &steamPath : m_steamRootPaths)
+	{
+		auto fullPath = steamPath +"steamapps/" +relPath;
+		if(IsVerbose())
+			std::cout<<"[uarch] Checking '"<<fullPath<<"'...";
+		auto result = FileManager::IsSystemDir(fullPath.GetString());
+		if(IsVerbose())
+			std::cout<<' '<<(result ? "Found!" : "Not found!")<<std::endl;
+		if(result == false)
+			continue;
+		return fullPath;
+	}
+	return {};
+}
+
+void uarch::GameMountManager::InitializeArchiveFileTable(uarch::ArchiveFileTable::Item &archiveDir,const hl::Archive::Directory &dir)
+{
+	std::vector<std::string> files;
+	std::vector<hl::Archive::Directory> dirs;
+	dir.GetItems(files,dirs);
+	auto fConvertArchiveName = [](const std::string &f) {
+		util::Path archFile {GetNormalizedPath(f)};
+		if(archFile.IsEmpty() == false)
+		{
+			auto front = archFile.GetFront();
+			if(front == "root")
+				archFile.PopFront();
+		}
+		return archFile.GetString();
+	};
+	archiveDir.children.reserve(archiveDir.children.size() +files.size() +dirs.size());
+	for(auto &f : files)
+		archiveDir.children.push_back({fConvertArchiveName(f),false});
+	for(auto &d : dirs)
+	{
+		archiveDir.children.push_back({fConvertArchiveName(d.GetPath()),true});
+		InitializeArchiveFileTable(archiveDir.children.back(),d);
+	}
+}
+
+void uarch::GameMountManager::MountWorkshopAddons(BaseMountedGame &game,SteamSettings::AppId appId)
+{
+	for(auto &steamPath : m_steamRootPaths)
+	{
+		auto path = steamPath +"/steamapps/workshop/content/" +std::to_string(appId) +"/";
+
+		std::vector<std::string> workshopAddonPaths;
+		FileManager::FindSystemFiles((path.GetString() +"*").c_str(),nullptr,&workshopAddonPaths,true);
+		if(IsVerbose())
+			std::cout<<"[uarch] Mounting "<<workshopAddonPaths.size()<<" workshop addons in '"<<path<<"'..."<<std::endl;
+		for(auto &workshopAddonPath : workshopAddonPaths)
+		{
+			auto absWorkshopAddonPath = path +util::get_normalized_path(workshopAddonPath);
+			if(IsVerbose())
+				std::cout<<"[uarch] Mounting workshop addon '"<<absWorkshopAddonPath<<"'..."<<std::endl;
+			// TODO
+
+			std::vector<std::string> vpkFilePaths {};
+			FileManager::FindSystemFiles((absWorkshopAddonPath.GetString() +"*.vpk").c_str(),&vpkFilePaths,nullptr,true);
+			if(IsVerbose() && vpkFilePaths.empty() == false)
+				std::cout<<"[uarch] Found "<<vpkFilePaths.size()<<" VPK archive files in workshop addon '"<<path<<"'! Mounting..."<<std::endl;
+			for(auto &vpkFilePath : vpkFilePaths)
+			{
+				auto archive = hl::Archive::Create(absWorkshopAddonPath.GetString() +vpkFilePath);
+				if(archive == nullptr)
+					continue;
+				if(IsVerbose())
+					std::cout<<"[uarch] Mounting VPK archive '"<<absWorkshopAddonPath +vpkFilePath<<"'..."<<std::endl;
+				// TODO
+				//s_hlArchives.push_back(archive);
+				//traverse_vpk_archive(s_hlArchives.back().root,archive->GetRoot());
+			}
+		}
+	}
+}
+
+const std::vector<std::unique_ptr<uarch::BaseMountedGame>> &uarch::GameMountManager::GetMountedGames() const {return m_mountedGames;}
+
+void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo)
+{
+	// Determine absolute game path on disk
+	std::vector<std::string> absoluteGamePaths {};
+	if(mountInfo.steamSettings.has_value())
+	{
+		if(IsVerbose())
+			std::cout<<"[uarch] Found steam settings for game '"<<mountInfo.identifier<<"'! Attempting to locate game directory..."<<std::endl;
+		for(auto &gamePath : mountInfo.steamSettings->gamePaths)
+		{
+			auto steamGamePath = FindSteamGamePath(gamePath);
+			if(steamGamePath.has_value())
+			{
+				if(IsVerbose())
+					std::cout<<"[uarch] Successfully located game in '"<<*steamGamePath<<"'! Adding to mount list..."<<std::endl;
+
+				absoluteGamePaths.push_back(steamGamePath->GetString());
+			}
+		}
+	}
+	if(absoluteGamePaths.empty())
+	{
+		if(mountInfo.absolutePath.has_value())
+		{
+			auto result = FileManager::IsSystemDir(*mountInfo.absolutePath);
+			if(IsVerbose())
+			{
+				if(result)
+					std::cout<<"[uarch] Found game location for '"<<mountInfo.identifier<<"' in '"<<*mountInfo.absolutePath<<"'! Adding to mount list..."<<std::endl;
+				else
+					std::cout<<"[uarch] WARNING: Could not find directory '"<<*mountInfo.absolutePath<<"' for game '"<<mountInfo.identifier<<"'! Ignoring..."<<std::endl;
+			}
+			if(result)
+				absoluteGamePaths.push_back(*mountInfo.absolutePath);
+		}
+		else if(IsVerbose())
+			std::cout<<"[uarch] WARNING: No steam game path or absolute game path have been specified for game '"<<mountInfo.identifier<<"'! Is this intended?"<<std::endl;
+	}
+
+	if(absoluteGamePaths.empty())
+	{
+		if(IsVerbose())
+			std::cout<<"[uarch] WARNING: Unable to locate absolute game path for game '"<<mountInfo.identifier<<"'! Skipping..."<<std::endl;
+		return;
+	}
+	std::unique_ptr<BaseMountedGame> game = nullptr;
+	switch(mountInfo.gameEngine)
+	{
+	case GameEngine::SourceEngine:
+		game = std::make_unique<SourceEngineMountedGame>(GameEngine::SourceEngine);
+		break;
+	case GameEngine::Source2:
+		game = std::make_unique<Source2MountedGame>(GameEngine::Source2);
+		break;
+#ifdef ENABLE_BETHESDA_FORMATS
+	case GameEngine::Gamebryo:
+		game = std::make_unique<GamebryoMountedGame>(GameEngine::Gamebryo);
+		break;
+	case GameEngine::CreationEngine:
+		game = std::make_unique<CreationEngineMountedGame>(GameEngine::CreationEngine);
+		break;
+#endif
+	}
+	if(game == nullptr)
+	{
+		if(IsVerbose())
+			std::cout<<"[uarch] Unsupported engine "<<to_string(mountInfo.gameEngine)<<" for game '"<<mountInfo.identifier<<"'! Skipping..."<<std::endl;
+		return;
+	}
+	for(auto &absPath : absoluteGamePaths)
+		game->MountPath(absPath);
+
+	// Load archive files
+	switch(mountInfo.gameEngine)
+	{
+	case uarch::GameEngine::SourceEngine:
+	case uarch::GameEngine::Source2:
+	{
+		auto *engineData = static_cast<uarch::SourceEngineSettings*>(mountInfo.engineSettings.get());
+		if(engineData)
+		{
+			if(IsVerbose())
+				std::cout<<"[uarch] Mounting "<<engineData->vpkList.size()<<" VPK archive files for game '"<<mountInfo.identifier<<"'..."<<std::endl;
+			for(auto &pair : engineData->vpkList)
+			{
+				auto found = false;
+				for(auto &absGamePath : absoluteGamePaths)
+				{
+					util::Path vpkPath {absGamePath +pair.first};
+					auto fileName = vpkPath.GetFileName();
+					ustring::to_lower(fileName);
+					// pak01_dir is a common name across multiple Source Engine games, so it can appear multiple times
+					if(m_mountedVPKArchives.find(fileName) != m_mountedVPKArchives.end() && ustring::compare(fileName,"pak01_dir.vpk",false) == false)
+					{
+						if(IsVerbose())
+							std::cout<<"[uarch] VPK '"<<fileName<<"' has already been loaded before! Ignoring..."<<std::endl;
+						continue;
+					}
+
+					if(IsVerbose())
+						std::cout<<"[uarch] Mounting VPK '"<<vpkPath.GetString()<<"'..."<<std::endl;
+					auto archive = hl::Archive::Create(vpkPath.GetString());
+					if(archive == nullptr)
+						continue;
+					found = true;
+					m_mountedVPKArchives.insert(fileName);
+					archive->SetRootDirectory(pair.second.rootDir);
+					auto &fileTable = game->AddArchiveFileTable(archive);
+					InitializeArchiveFileTable(fileTable.root,archive->GetRoot());
+					break;
+				}
+				if(found == false && IsVerbose())
+					std::cout<<"[uarch] WARNING: Unable to find VPK archive '"<<pair.first<<"' for game '"<<mountInfo.identifier<<"'!"<<std::endl;
+			}
+		}
+		break;
+	}
+#ifdef ENABLE_BETHESDA_FORMATS
+	case uarch::GameEngine::Gamebryo:
+	{
+		auto *engineData = static_cast<uarch::GamebryoSettings*>(mountInfo.engineSettings.get());
+		if(engineData)
+		{
+			if(IsVerbose())
+				std::cout<<"[uarch] Mounting "<<engineData->bsaList.size()<<" BSA archive files for game '"<<mountInfo.identifier<<"'..."<<std::endl;
+			for(auto &pair : engineData->bsaList)
+			{
+				auto found = false;
+				for(auto &absGamePath : absoluteGamePaths)
+				{
+					util::Path bsaPath {absGamePath +pair.first};
+					if(IsVerbose())
+						std::cout<<"[uarch] Mounting BSA '"<<bsaPath.GetString()<<"'..."<<std::endl;
+
+					bsa_handle hBsa = nullptr;
+					auto r = bsa_open(&hBsa,bsaPath.GetString().c_str());
+					if(r != LIBBSA_OK)
+						continue;
+					found = true;
+					auto &fileTable = game->AddArchiveFileTable(std::make_shared<bsa_handle>(hBsa));
+					auto &assets = bsa_get_raw_assets(hBsa);
+					for(auto &asset : assets)
+						fileTable.root.Add(GetNormalizedGamebryoPath(asset.path),false);
+				}
+				if(found == false && IsVerbose())
+					std::cout<<"[uarch] WARNING: Unable to find BSA archive '"<<pair.first<<"' for game '"<<mountInfo.identifier<<"'!"<<std::endl;
+			}
+		}
+		break;
+	}
+	case uarch::GameEngine::CreationEngine:
+	{
+		auto *engineData = static_cast<uarch::CreationEngineSettings*>(mountInfo.engineSettings.get());
+		if(engineData)
+		{
+			if(IsVerbose())
+				std::cout<<"[uarch] Mounting "<<engineData->ba2List.size()<<" BA2 archive files for game '"<<mountInfo.identifier<<"'..."<<std::endl;
+			for(auto &pair : engineData->ba2List)
+			{
+				auto found = false;
+				for(auto &absGamePath : absoluteGamePaths)
+				{
+					util::Path bsaPath {absGamePath +pair.first};
+					if(IsVerbose())
+						std::cout<<"[uarch] Mounting BA2 '"<<bsaPath.GetString()<<"'..."<<std::endl;
+
+					auto ba2 = std::make_shared<BA2>();
+					try
+					{
+						if(ba2->Open(bsaPath.GetString().c_str()) == false)
+							continue;
+					}
+					catch(const std::exception &e)
+					{
+						continue;
+					}
+					found = true;
+					auto &fileTable = game->AddArchiveFileTable(ba2);
+					for(auto &asset : ba2->nameTable)
+						fileTable.root.Add(GetNormalizedGamebryoPath(asset),false);
+				}
+				if(found == false && IsVerbose())
+					std::cout<<"[uarch] WARNING: Unable to find BA2 archive '"<<pair.first<<"' for game '"<<mountInfo.identifier<<"'!"<<std::endl;
+			}
+		}
+		break;
+	}
+#endif
+	}
+
+	// Mount workshop
+	if(mountInfo.steamSettings.has_value())
+	{
+		if(mountInfo.steamSettings->appId != std::numeric_limits<uarch::SteamSettings::AppId>::max())
+			MountWorkshopAddons(*game,mountInfo.steamSettings->appId);
+	}
+
+	m_mountedGames.push_back(std::move(game));
+}
+
+void uarch::GameMountManager::SetVerbose(bool verbose) {m_verbose = verbose;}
+bool uarch::GameMountManager::IsVerbose() const {return m_verbose;}
+
+void uarch::GameMountManager::WaitUntilInitializationComplete()
+{
+	if(m_loadThread.joinable())
+		m_loadThread.join();
+}
+void uarch::GameMountManager::Start()
+{
+	if(m_initialized)
+		return;
+	m_initialized = true;
+	m_loadThread = std::thread{[this]() {
+		hlInitialize();
+		std::string rootSteamPath;
+#ifdef _WIN32
+		if(util::get_registry_key_value(util::HKey::CurrentUser,"SOFTWARE\\Valve\\Steam","SteamPath",rootSteamPath) == true)
+#else
+		auto *pHomePath = getenv("HOME");
+		if(pHomePath != nullptr)
+			rootSteamPath = pHomePath;
+		else
+			rootSteamPath = "";
+		rootSteamPath += "/.local/share/Steam";
+#endif
+		{
+			m_steamRootPaths.push_back(util::get_normalized_path(rootSteamPath));
+
+			std::vector<std::string> additionalSteamPaths {};
+			vdf::get_external_steam_locations(rootSteamPath,additionalSteamPaths);
+			m_steamRootPaths.reserve(m_steamRootPaths.size() +additionalSteamPaths.size());
+			for(auto &path : additionalSteamPaths)
+				m_steamRootPaths.push_back(util::get_normalized_path(path));
+
+			if(IsVerbose())
+			{
+				std::cout<<"[uarch] Found "<<m_steamRootPaths.size()<<" steam locations:"<<std::endl;
+				for(auto &path : m_steamRootPaths)
+					std::cout<<"[uarch] "<<path<<std::endl;
+			}
+
+			for(auto &info : m_mountedGameInfos)
+			{
+				if(m_cancel)
+					break;
+				InitializeGame(info);
+			}
+
+			if(m_cancel == false)
+			{
+				// Determine gmod addon paths
+				// TODO
+#if 0
+				for(auto &steamPath : s_steamRootPaths)
+				{
+					std::string gmodAddonPath = steamPath +"/steamapps/common/GarrysMod/garrysmod/addons/";
+					std::vector<std::string> addonDirs;
+					FileManager::FindSystemFiles((gmodAddonPath +"*").c_str(),nullptr,&addonDirs);
+					for(auto &d : addonDirs)
+						add_source_game_path(gmodAddonPath +d +"/");
+				}
+#endif
+			}
+		}
+	}};
+}
+
+bool uarch::GameMountManager::MountGame(const GameMountInfo &mountInfo)
+{
+	if(m_initialized)
+		throw std::logic_error{"New games cannot be mounted after mount manager has been initialized!"};
+	if(m_mountedGameInfos.size() == m_mountedGameInfos.capacity())
+		m_mountedGameInfos.reserve(m_mountedGameInfos.size() *1.5f +50);
+	m_mountedGameInfos.push_back(mountInfo);
+	return true;
+}
+
+std::string uarch::GameMountManager::GetNormalizedPath(const std::string &path)
+{
+	auto cpy = path;
+	ustring::to_lower(cpy);
+	cpy = FileManager::GetNormalizedPath(cpy);
+	return cpy;
+}
+
+std::string uarch::GameMountManager::GetNormalizedSourceEnginePath(const std::string &strPath)
+{
+	util::Path path {GetNormalizedPath(strPath)};
+	if(path.IsEmpty() == false && ustring::compare(path.GetFront(),"sounds",false))
+	{
+		path.PopFront();
+		path = "sound/" +path;
+	}
+	return path.GetString();
+}
+#ifdef ENABLE_BETHESDA_FORMATS
+std::string uarch::GameMountManager::GetNormalizedGamebryoPath(const std::string &strPath)
+{
+	util::Path path {GetNormalizedPath(strPath)};
+	if(path.IsEmpty() == false)
+	{
+		auto front = path.GetFront();
+		if(ustring::compare(front,"sounds",false))
+		{
+			path.PopFront();
+			path = "sound/" +path;
+		}
+		else if(ustring::compare(front,"materials",false))
+		{
+			path.PopFront();
+			path = "textures/" +path;
+		}
+		else if(ustring::compare(front,"models",false))
+			path.PopFront();
+	}
+	auto outPath = path.GetString();
+	std::replace(outPath.begin(),outPath.end(),'/','\\');
+	return outPath;
+}
+#endif
+static std::unique_ptr<uarch::GameMountManager> g_gameMountManager = nullptr;
+void uarch::setup()
+{
+	if(g_gameMountManager)
+		return;
+	g_gameMountManager = std::make_unique<uarch::GameMountManager>();
+}
+void uarch::initialize(bool bWait)
+{
+	if(g_gameMountManager == nullptr)
+		return;
+	g_gameMountManager->Start();
+	if(bWait)
+		g_gameMountManager->WaitUntilInitializationComplete();
+}
+
+void uarch::initialize()
+{
+	initialize(false);
+}
+
+void uarch::set_verbose(bool verbose)
+{
+	if(g_gameMountManager)
+		g_gameMountManager->SetVerbose(verbose);
+}
+
+bool uarch::mount_game(const GameMountInfo &mountInfo)
+{
+	setup();
+	if(g_gameMountManager == nullptr)
+		return false;
+	g_gameMountManager->MountGame(mountInfo);
+	return true;
+}
+
+void uarch::close()
+{
+	g_gameMountManager = nullptr;
+}
+
+void uarch::find_files(const std::string &fpath,std::vector<std::string> *files,std::vector<std::string> *dirs)
+{
+	setup();
+	initialize(true);
+
+	if(g_gameMountManager == nullptr)
+		return;
+	for(auto &game : g_gameMountManager->GetMountedGames())
+		game->FindFiles(fpath,files,dirs);
+}
+
+VFilePtr uarch::load(const std::string &path,std::optional<std::string> *optOutSourcePath)
+{
+	setup();
+	initialize(true);
+
+	for(auto &game : g_gameMountManager->GetMountedGames())
+	{
+		auto f = game->Load(path,optOutSourcePath);
+		if(f)
+			return f;
+	}
+	return nullptr;
 }
 
 bool uarch::load(const std::string &path,std::vector<uint8_t> &data)
 {
-	auto npath = normalize_path(path);
+	setup();
 	initialize(true);
 
-	auto hlPath = get_hl_path(npath);
-	for(auto &hlArch : s_hlArchives)
+	for(auto &game : g_gameMountManager->GetMountedGames())
 	{
-		auto stream = hlArch.handle->OpenFile(hlPath);
-		if(stream == nullptr)
-			continue;
-		if(stream->Read(data) == true)
+		if(game->Load(path,data))
 			return true;
 	}
-
-#ifdef ENABLE_BETHESDA_FORMATS
-	auto bsaPath = get_beth_path(npath);
-	for(auto &hBsa : s_bsaHandles)
-	{
-		bool result;
-		auto r = bsa_contains_asset(hBsa.handle,bsaPath.c_str(),&result);
-		if(r != LIBBSA_OK || result == false)
-			continue;
-		const uint8_t *pdata = nullptr;
-		std::size_t size = 0;
-		r = bsa_extract_asset_to_memory(hBsa.handle,bsaPath.c_str(),&pdata,&size);
-		if(r != LIBBSA_OK)
-			continue;
-		data.resize(size);
-		memcpy(data.data(),pdata,size);
-		return true;
-	}
-	for(auto &hBa2 : s_ba2Handles)
-	{
-		if(hBa2.handle == nullptr)
-			continue;
-		auto it = std::find_if(hBa2.handle->nameTable.begin(),hBa2.handle->nameTable.end(),[&npath](const std::string &other) {
-			return (other == npath) ? true : false;
-		});
-		if(it == hBa2.handle->nameTable.end())
-			continue;
-		data.clear();
-		if(hBa2.handle->Extract(it -hBa2.handle->nameTable.begin(),data) != 1)
-			continue;
-		return true;
-	}
-#endif
 	return false;
 }
 #pragma optimize("",on)
