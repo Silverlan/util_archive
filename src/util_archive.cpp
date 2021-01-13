@@ -185,7 +185,7 @@ namespace uarch
 	private:
 		static void InitializeArchiveFileTable(uarch::ArchiveFileTable::Item &archiveDir,const hl::Archive::Directory &dir);
 
-		std::optional<util::Path> FindSteamGamePath(const std::string &relPath);
+		std::vector<util::Path> FindSteamGamePaths(const std::string &relPath);
 		void MountWorkshopAddons(BaseMountedGame &game,SteamSettings::AppId appId);
 
 		std::vector<GameMountInfo> m_mountedGameInfos {};
@@ -396,11 +396,16 @@ uarch::GameMountManager::~GameMountManager()
 	hlShutdown();
 }
 
-std::optional<util::Path> uarch::GameMountManager::FindSteamGamePath(const std::string &relPath)
+std::vector<util::Path> uarch::GameMountManager::FindSteamGamePaths(const std::string &relPath)
 {
 	if(IsVerbose())
 		std::cout<<"[uarch] Searching for steam game path '"<<relPath<<"'..."<<std::endl;
 
+	auto rootRelPath = util::Path::CreatePath(relPath);
+	while(rootRelPath.GetComponentCount() > 2) // strip down to 'common/<game>'
+		rootRelPath.PopBack();
+
+	std::vector<util::Path> candidates {};
 	for(auto &steamPath : m_steamRootPaths)
 	{
 		auto fullPath = steamPath +"steamapps/" +relPath;
@@ -411,9 +416,9 @@ std::optional<util::Path> uarch::GameMountManager::FindSteamGamePath(const std::
 			std::cout<<' '<<(result ? "Found!" : "Not found!")<<std::endl;
 		if(result == false)
 			continue;
-		return fullPath;
+		candidates.push_back(fullPath);
 	}
-	return {};
+	return candidates;
 }
 
 void uarch::GameMountManager::InitializeArchiveFileTable(uarch::ArchiveFileTable::Item &archiveDir,const hl::Archive::Directory &dir)
@@ -489,13 +494,12 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo)
 			std::cout<<"[uarch] Found steam settings for game '"<<mountInfo.identifier<<"'! Attempting to locate game directory..."<<std::endl;
 		for(auto &gamePath : mountInfo.steamSettings->gamePaths)
 		{
-			auto steamGamePath = FindSteamGamePath(gamePath);
-			if(steamGamePath.has_value())
+			auto steamGamePaths = FindSteamGamePaths(gamePath);
+			for(auto &steamGamePath : steamGamePaths)
 			{
 				if(IsVerbose())
-					std::cout<<"[uarch] Successfully located game in '"<<*steamGamePath<<"'! Adding to mount list..."<<std::endl;
-
-				absoluteGamePaths.push_back(steamGamePath->GetString());
+					std::cout<<"[uarch] Successfully located game in '"<<steamGamePath<<"'! Adding to mount list..."<<std::endl;
+				absoluteGamePaths.push_back(steamGamePath.GetString());
 			}
 		}
 	}
