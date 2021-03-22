@@ -109,16 +109,20 @@ namespace uarch
 	public:
 		const std::vector<util::Path> &GetMountedPaths() const;
 		const std::vector<ArchiveFileTable> &GetArchives() const;
-		void FindFiles(const std::string &fpath,std::vector<std::string> *optOutFiles,std::vector<std::string> *optOutDirs);
+		void FindFiles(const std::string &fpath,std::vector<std::string> *optOutFiles,std::vector<std::string> *optOutDirs,bool keepAbsPaths=false);
 		bool Load(const std::string &path,std::vector<uint8_t> &data);
 		VFilePtr Load(const std::string &path,std::optional<std::string> *optOutSourcePath=nullptr);
 
 		void MountPath(const std::string &path);
 		ArchiveFileTable &AddArchiveFileTable(const std::shared_ptr<void> &phandle);
+
+		void SetGameMountInfoIndex(uint32_t gameMountInfoIdx) {m_gameMountInfoIdx = gameMountInfoIdx;}
+		uint32_t GetGameMountInfoIndex() const {return m_gameMountInfoIdx;}
 	protected:
 		BaseMountedGame(GameEngine gameEngine);
 	private:
 		GameEngine m_gameEngine = GameEngine::Invalid;
+		uint32_t m_gameMountInfoIdx = 0;
 		std::vector<util::Path> m_mountedPaths {};
 		std::vector<ArchiveFileTable> m_archives {};
 	};
@@ -174,8 +178,34 @@ namespace uarch
 		void SetVerbose(bool verbose);
 		bool IsVerbose() const;
 
-		void InitializeGame(const GameMountInfo &mountInfo);
+		void InitializeGame(const GameMountInfo &mountInfo,uint32_t gameMountInfoIdx);
 		const std::vector<std::unique_ptr<BaseMountedGame>> &GetMountedGames() const;
+		const std::vector<GameMountInfo> &GetGameMountInfos() const {return m_mountedGameInfos;}
+		
+		const GameMountInfo *FindGameMountInfo(const std::string &identifier) const
+		{
+			auto &gameMountInfos = GetGameMountInfos();
+			auto it = std::find_if(gameMountInfos.begin(),gameMountInfos.end(),[&identifier](const GameMountInfo &mountInfo) {return ustring::compare(mountInfo.identifier,identifier,false);});
+			if(it == gameMountInfos.end())
+				return nullptr;
+			return &*it;
+		}
+
+		const BaseMountedGame *FindMountedGameByIdentifier(const std::string &identifier) const {return const_cast<GameMountManager*>(this)->FindMountedGameByIdentifier(identifier);}
+		BaseMountedGame *FindMountedGameByIdentifier(const std::string &identifier)
+		{
+			auto &gameMountInfos = GetGameMountInfos();
+			auto it = std::find_if(gameMountInfos.begin(),gameMountInfos.end(),[&identifier](const GameMountInfo &mountInfo) {return ustring::compare(mountInfo.identifier,identifier,false);});
+			if(it == gameMountInfos.end())
+				return nullptr;
+			auto idx = it -gameMountInfos.begin();
+			auto itGame = std::find_if(m_mountedGames.begin(),m_mountedGames.end(),[idx](const std::unique_ptr<BaseMountedGame> &game) {
+				return game->GetGameMountInfoIndex() == idx;
+			});
+			if(itGame == m_mountedGames.end())
+				return nullptr;
+			return itGame->get();
+		}
 
 		static std::string GetNormalizedPath(const std::string &path);
 		static std::string GetNormalizedSourceEnginePath(const std::string &path);
@@ -221,7 +251,7 @@ uarch::ArchiveFileTable &uarch::BaseMountedGame::AddArchiveFileTable(const std::
 const std::vector<util::Path> &uarch::BaseMountedGame::GetMountedPaths() const {return m_mountedPaths;}
 const std::vector<uarch::ArchiveFileTable> &uarch::BaseMountedGame::GetArchives() const {return m_archives;}
 
-void uarch::BaseMountedGame::FindFiles(const std::string &fpath,std::vector<std::string> *optOutFiles,std::vector<std::string> *optOutDirs)
+void uarch::BaseMountedGame::FindFiles(const std::string &fpath,std::vector<std::string> *optOutFiles,std::vector<std::string> *optOutDirs,bool keepAbsPaths)
 {
 	auto npath = fpath;
 	switch(m_gameEngine)
@@ -237,9 +267,29 @@ void uarch::BaseMountedGame::FindFiles(const std::string &fpath,std::vector<std:
 		break;
 #endif
 	}
-	for(auto &path : GetMountedPaths())
-		FileManager::FindSystemFiles((path.GetString() +npath).c_str(),optOutFiles,optOutDirs);
 
+	for(auto &path : GetMountedPaths())
+	{
+		auto foffset = optOutFiles ? optOutFiles->size() : 0;
+		auto doffset = optOutDirs ? optOutDirs->size() : 0;
+		auto searchPath = util::Path::CreatePath(FileManager::GetCanonicalizedPath(path.GetString() +ufile::get_path_from_filename(npath)));
+		FileManager::FindSystemFiles((searchPath.GetString() +ufile::get_file_from_filename(npath)).c_str(),optOutFiles,optOutDirs);
+		if(keepAbsPaths)
+		{
+			if(optOutFiles)
+			{
+				for(auto i=foffset;i<optOutFiles->size();++i)
+					(*optOutFiles)[i] = (searchPath +util::Path::CreateFile((*optOutFiles)[i])).GetString();
+			}
+			if(optOutDirs)
+			{
+				for(auto i=doffset;i<optOutDirs->size();++i)
+					(*optOutDirs)[i] = (searchPath +util::Path::CreateFile((*optOutDirs)[i])).GetString();
+			}
+		}
+	}
+	if(keepAbsPaths)
+		return;
 	npath = GameMountManager::GetNormalizedPath(npath);
 	const auto fSearchArchive = 
 		[optOutFiles,optOutDirs,&npath](const auto &data) {
@@ -484,7 +534,7 @@ void uarch::GameMountManager::MountWorkshopAddons(BaseMountedGame &game,SteamSet
 
 const std::vector<std::unique_ptr<uarch::BaseMountedGame>> &uarch::GameMountManager::GetMountedGames() const {return m_mountedGames;}
 
-void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo)
+void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint32_t gameMountInfoIdx)
 {
 	// Determine absolute game path on disk
 	std::vector<std::string> absoluteGamePaths {};
@@ -680,6 +730,7 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo)
 			MountWorkshopAddons(*game,mountInfo.steamSettings->appId);
 	}
 
+	game->SetGameMountInfoIndex(gameMountInfoIdx);
 	m_mountedGames.push_back(std::move(game));
 }
 
@@ -725,11 +776,11 @@ void uarch::GameMountManager::Start()
 					std::cout<<"[uarch] "<<path<<std::endl;
 			}
 
-			for(auto &info : m_mountedGameInfos)
+			for(auto i=decltype(m_mountedGameInfos.size()){0u};i<m_mountedGameInfos.size();++i)
 			{
 				if(m_cancel)
 					break;
-				InitializeGame(info);
+				InitializeGame(m_mountedGameInfos[i],i);
 			}
 
 			if(m_cancel == false)
@@ -771,7 +822,11 @@ std::string uarch::GameMountManager::GetNormalizedPath(const std::string &path)
 
 std::string uarch::GameMountManager::GetNormalizedSourceEnginePath(const std::string &strPath)
 {
-	util::Path path {GetNormalizedPath(strPath)};
+	util::Path path {strPath};
+	auto isRoot = (path.GetFront() == "..");
+	path.Canonicalize();
+	if(isRoot)
+		path = "../" +path;
 	if(path.IsEmpty() == false && ustring::compare(path.GetFront(),"sounds",false))
 	{
 		path.PopFront();
@@ -840,27 +895,68 @@ bool uarch::mount_game(const GameMountInfo &mountInfo)
 	return true;
 }
 
+const std::vector<uarch::GameMountInfo> &uarch::get_game_mount_infos()
+{
+	setup();
+	initialize(false);
+	return g_gameMountManager->GetGameMountInfos();
+}
+
 void uarch::close()
 {
 	g_gameMountManager = nullptr;
 }
 
-void uarch::find_files(const std::string &fpath,std::vector<std::string> *files,std::vector<std::string> *dirs)
+bool uarch::get_mounted_game_paths(const std::string &gameIdentifier,std::vector<std::string> &outPaths)
+{
+	setup();
+	initialize(true);
+
+	auto *game = g_gameMountManager->FindMountedGameByIdentifier(gameIdentifier);
+	if(game == nullptr)
+		return false;
+	auto &mountedPaths = game->GetMountedPaths();
+	outPaths.reserve(outPaths.size() +mountedPaths.size());
+	for(auto &path : mountedPaths)
+		outPaths.push_back(path.GetString());
+	return true;
+}
+
+bool uarch::find_files(const std::string &fpath,std::vector<std::string> *files,std::vector<std::string> *dirs,bool keepAbsPaths,const std::optional<std::string> &gameIdentifier)
 {
 	setup();
 	initialize(true);
 
 	if(g_gameMountManager == nullptr)
-		return;
-	for(auto &game : g_gameMountManager->GetMountedGames())
-		game->FindFiles(fpath,files,dirs);
+		return false;
+	auto &mountedGames = g_gameMountManager->GetMountedGames();
+	if(gameIdentifier.has_value())
+	{
+		auto *game = g_gameMountManager->FindMountedGameByIdentifier(*gameIdentifier);
+		if(game == nullptr)
+			return false;
+		game->FindFiles(fpath,files,dirs,keepAbsPaths);
+	}
+	else
+	{
+		for(auto &game : mountedGames)
+			game->FindFiles(fpath,files,dirs,keepAbsPaths);
+	}
+	return true;
 }
 
-VFilePtr uarch::load(const std::string &path,std::optional<std::string> *optOutSourcePath)
+VFilePtr uarch::load(const std::string &path,std::optional<std::string> *optOutSourcePath,const std::optional<std::string> &gameIdentifier)
 {
 	setup();
 	initialize(true);
 
+	if(gameIdentifier.has_value())
+	{
+		auto *game = g_gameMountManager->FindMountedGameByIdentifier(*gameIdentifier);
+		if(game == nullptr)
+			return nullptr;
+		return game->Load(path,optOutSourcePath);
+	}
 	for(auto &game : g_gameMountManager->GetMountedGames())
 	{
 		auto f = game->Load(path,optOutSourcePath);

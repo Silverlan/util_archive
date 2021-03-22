@@ -29,14 +29,16 @@
 
 namespace uarch
 {
-	DLLARCHLIB VFilePtr load(const std::string &path,std::optional<std::string> *optOutSourcePath=nullptr);
+	DLLARCHLIB VFilePtr load(const std::string &path,std::optional<std::string> *optOutSourcePath=nullptr,const std::optional<std::string> &game={});
 	DLLARCHLIB bool load(const std::string &path,std::vector<uint8_t> &data);
-	DLLARCHLIB void find_files(const std::string &path,std::vector<std::string> *files,std::vector<std::string> *dirs);
+	DLLARCHLIB bool find_files(const std::string &path,std::vector<std::string> *files,std::vector<std::string> *dirs,bool keepAbsPaths=false,const std::optional<std::string> &game={});
+	DLLARCHLIB bool get_mounted_game_paths(const std::string &game,std::vector<std::string> &outPaths);
 	DLLARCHLIB void set_verbose(bool verbose);
 	DLLARCHLIB void close();
 
 	struct GameMountInfo;
 	DLLARCHLIB bool mount_game(const GameMountInfo &mountInfo);
+	DLLARCHLIB const std::vector<GameMountInfo> &get_game_mount_infos();
 	DLLARCHLIB void initialize();
 };
 
