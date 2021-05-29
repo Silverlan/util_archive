@@ -181,6 +181,7 @@ namespace uarch
 		void InitializeGame(const GameMountInfo &mountInfo,uint32_t gameMountInfoIdx);
 		const std::vector<std::unique_ptr<BaseMountedGame>> &GetMountedGames() const;
 		const std::vector<GameMountInfo> &GetGameMountInfos() const {return m_mountedGameInfos;}
+		void UpdateGamePriorities();
 		
 		const GameMountInfo *FindGameMountInfo(const std::string &identifier) const
 		{
@@ -737,6 +738,17 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 void uarch::GameMountManager::SetVerbose(bool verbose) {m_verbose = verbose;}
 bool uarch::GameMountManager::IsVerbose() const {return m_verbose;}
 
+void uarch::GameMountManager::UpdateGamePriorities()
+{
+	auto &mountedGameInfos = GetGameMountInfos();
+	auto &mountedGames = m_mountedGames;
+	std::sort(mountedGames.begin(),mountedGames.end(),[&mountedGameInfos](const std::unique_ptr<uarch::BaseMountedGame> &game0,const std::unique_ptr<uarch::BaseMountedGame> &game1) {
+		auto &info0 = mountedGameInfos[game0->GetGameMountInfoIndex()];
+		auto &info1 = mountedGameInfos[game1->GetGameMountInfoIndex()];
+		return info0.priority > info1.priority;
+	});
+}
+
 void uarch::GameMountManager::WaitUntilInitializationComplete()
 {
 	if(m_loadThread.joinable())
@@ -859,7 +871,9 @@ std::string uarch::GameMountManager::GetNormalizedGamebryoPath(const std::string
 	return outPath;
 }
 #endif
+
 static std::unique_ptr<uarch::GameMountManager> g_gameMountManager = nullptr;
+
 void uarch::setup()
 {
 	if(g_gameMountManager)
@@ -878,6 +892,28 @@ void uarch::initialize(bool bWait)
 void uarch::initialize()
 {
 	initialize(false);
+}
+
+std::optional<int32_t> uarch::get_mounted_game_priority(const std::string &gameIdentifier)
+{
+	setup();
+	initialize(true);
+
+	auto *game = g_gameMountManager->FindMountedGameByIdentifier(gameIdentifier);
+	if(game == nullptr)
+		return {};
+	return g_gameMountManager->GetGameMountInfos()[game->GetGameMountInfoIndex()].priority;
+}
+void uarch::set_mounted_game_priority(const std::string &gameIdentifier,int32_t priority)
+{
+	setup();
+	initialize(true);
+
+	auto *game = g_gameMountManager->FindMountedGameByIdentifier(gameIdentifier);
+	if(game == nullptr)
+		return;
+	const_cast<uarch::GameMountInfo&>(g_gameMountManager->GetGameMountInfos()[game->GetGameMountInfoIndex()]).priority = priority;
+	g_gameMountManager->UpdateGamePriorities();
 }
 
 void uarch::set_verbose(bool verbose)

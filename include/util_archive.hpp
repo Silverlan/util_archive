@@ -33,6 +33,8 @@ namespace uarch
 	DLLARCHLIB bool load(const std::string &path,std::vector<uint8_t> &data);
 	DLLARCHLIB bool find_files(const std::string &path,std::vector<std::string> *files,std::vector<std::string> *dirs,bool keepAbsPaths=false,const std::optional<std::string> &game={});
 	DLLARCHLIB bool get_mounted_game_paths(const std::string &game,std::vector<std::string> &outPaths);
+	DLLARCHLIB std::optional<int32_t> get_mounted_game_priority(const std::string &game);
+	DLLARCHLIB void set_mounted_game_priority(const std::string &game,int32_t priority);
 	DLLARCHLIB void set_verbose(bool verbose);
 	DLLARCHLIB void close();
 

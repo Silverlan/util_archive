@@ -72,6 +72,7 @@ namespace uarch
 		std::optional<SteamSettings> steamSettings {};
 		std::optional<std::string> absolutePath {};
 		std::string localizationName;
+		int32_t priority = 0;
 		GameEngine gameEngine = GameEngine::Invalid;
 		std::shared_ptr<BaseEngineSettings> engineSettings = nullptr;
 
