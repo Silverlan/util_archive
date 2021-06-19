@@ -65,6 +65,7 @@ namespace uarch
 	};
 	struct DLLARCHLIB GameMountInfo
 	{
+		GameMountInfo()=default;
 		GameMountInfo(const GameMountInfo&)=default;
 		GameMountInfo &operator=(const GameMountInfo&)=default;
 		std::string identifier;
