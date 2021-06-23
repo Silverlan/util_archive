@@ -11,6 +11,7 @@ namespace vdf
 	{
 	public:
 		DataBlock() {}
+		std::unordered_map<std::string,DataBlock> children;
 		std::unordered_map<std::string,std::string> keyValues;
 	};
 
