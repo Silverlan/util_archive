@@ -623,10 +623,10 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 				for(auto &absGamePath : absoluteGamePaths)
 				{
 					util::Path vpkPath {absGamePath +pair.first};
-					auto fileName = vpkPath.GetFileName();
+					auto fileName = std::string{vpkPath.GetFileName()};
 					ustring::to_lower(fileName);
 					// pak01_dir is a common name across multiple Source Engine games, so it can appear multiple times
-					if(m_mountedVPKArchives.find(fileName) != m_mountedVPKArchives.end() && ustring::compare(fileName,"pak01_dir.vpk",false) == false)
+					if(m_mountedVPKArchives.find(fileName) != m_mountedVPKArchives.end() && ustring::compare<std::string>(fileName,"pak01_dir.vpk",false) == false)
 					{
 						if(IsVerbose())
 							std::cout<<"[uarch] VPK '"<<fileName<<"' has already been loaded before! Ignoring..."<<std::endl;
@@ -839,7 +839,7 @@ std::string uarch::GameMountManager::GetNormalizedSourceEnginePath(const std::st
 	path.Canonicalize();
 	if(isRoot)
 		path = "../" +path;
-	if(path.IsEmpty() == false && ustring::compare(path.GetFront(),"sounds",false))
+	if(path.IsEmpty() == false && ustring::compare<std::string_view>(path.GetFront(),"sounds",false))
 	{
 		path.PopFront();
 		path = "sound/" +path;
@@ -853,17 +853,17 @@ std::string uarch::GameMountManager::GetNormalizedGamebryoPath(const std::string
 	if(path.IsEmpty() == false)
 	{
 		auto front = path.GetFront();
-		if(ustring::compare(front,"sounds",false))
+		if(ustring::compare<std::string_view>(front,"sounds",false))
 		{
 			path.PopFront();
 			path = "sound/" +path;
 		}
-		else if(ustring::compare(front,"materials",false))
+		else if(ustring::compare<std::string_view>(front,"materials",false))
 		{
 			path.PopFront();
 			path = "textures/" +path;
 		}
-		else if(ustring::compare(front,"models",false))
+		else if(ustring::compare<std::string_view>(front,"models",false))
 			path.PopFront();
 	}
 	auto outPath = path.GetString();
