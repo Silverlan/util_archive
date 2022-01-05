@@ -812,6 +812,7 @@ void uarch::GameMountManager::Start()
 			}
 		}
 	}};
+	util::set_thread_name(m_loadThread,"uarch_game_mount");
 }
 
 bool uarch::GameMountManager::MountGame(const GameMountInfo &mountInfo)
