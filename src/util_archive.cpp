@@ -770,7 +770,19 @@ void uarch::GameMountManager::Start()
 			rootSteamPath = pHomePath;
 		else
 			rootSteamPath = "";
-		rootSteamPath += "/.local/share/Steam";
+        rootSteamPath += "/.steam/root";
+        char rootSteamPathLink[PATH_MAX];
+        auto *result = realpath(rootSteamPath.c_str(),rootSteamPathLink);
+        if(result != nullptr)
+        {
+            rootSteamPath = rootSteamPathLink;
+        }
+        else
+        {
+            std::cout<<"[uarch] Cannot find steam installation.";
+            return;
+        }
+        //rootSteamPath += "/.local/share/Steam";
 #endif
 		{
 			m_steamRootPaths.push_back(util::get_normalized_path(rootSteamPath));

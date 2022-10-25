@@ -138,4 +138,6 @@ if(DEFINED PRECOMPILED_HEADER)
 endif()
 set_target_properties(${PROJ_NAME} PROPERTIES ${TARGET_PROPERTIES})
 
+if(CONFIG_ENABLE_BETHESDA_FORMATS)
 add_dependencies(${PROJ_NAME} bsa)
+endif()
