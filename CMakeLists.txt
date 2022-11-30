@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.9)
 
 set(INCLUDE_DIRS)
 function(add_include_dir IDENTIFIER)
@@ -61,12 +61,12 @@ link_external_library(mathutil)
 link_external_library(vfilesystem)
 link_external_library(zlib)
 
+set(DEPENDENCY_HLLIB_INCLUDE ${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib CACHE PATH "Path to include directory.")
+
 if(WIN32)
-	option(CONFIG_ENABLE_BETHESDA_FORMATS "Enable support for ba2 and bsa archive files." ON)
-	link_external_library(ba2)
-	link_external_library(bsa)
-	add_external_library(boost_filesystem)
-	add_external_library(boost_locale)
+	search_lib_recursive_custom(DEPENDENCY_HLLIB_LIBRARY HLLib "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/sln/vs17/HLLib/x64/Release")
+else()
+	search_lib_recursive_custom(DEPENDENCY_HLLIB_LIBRARY hl "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib")
 endif()
 
 link_external_library(HLLib)
@@ -74,7 +74,6 @@ add_include_dir(zlib_build)
 
 set(DEFINITIONS
 	ARCHIVELIB_DLL
-	LIBBSA_STATIC
 )
 
 if(CONFIG_ENABLE_BETHESDA_FORMATS)
@@ -125,8 +124,6 @@ endforeach(LIB)
 target_include_directories(${PROJ_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
 target_include_directories(${PROJ_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
 
-target_include_directories(${PROJ_NAME} PRIVATE ${DEPENDENCY_BSA_INCLUDE}/../src/api)
-
 foreach(INCLUDE_PATH IN LISTS INCLUDE_DIRS)
 	target_include_directories(${PROJ_NAME} PRIVATE ${${INCLUDE_PATH}})
 endforeach(INCLUDE_PATH)
@@ -138,6 +135,21 @@ if(DEFINED PRECOMPILED_HEADER)
 endif()
 set_target_properties(${PROJ_NAME} PROPERTIES ${TARGET_PROPERTIES})
 
-if(CONFIG_ENABLE_BETHESDA_FORMATS)
-add_dependencies(${PROJ_NAME} bsa)
+# hllib
+if(WIN32)
+	include_external_msproject(hllib ${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/sln/vs17/HLLib/HLLib.vcxproj)
+	set_target_properties(hllib PROPERTIES FOLDER third_party_libs)
+else()
+    #Command needed for makefile: make -C HLLib -f Makefile
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib/libhl.so"
+        COMMAND "make"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib"
+    )
+    add_custom_target(hllib
+        #SOURCES "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib/"
+        DEPENDS "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib/libhl.so"
+    )
+    set_target_properties(hllib PROPERTIES FOLDER third_party_libs)
 endif()
+
+add_dependencies(${PROJ_NAME} hllib)
