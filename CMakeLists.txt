@@ -143,6 +143,8 @@ else()
     #Command needed for makefile: make -C HLLib -f Makefile
     add_custom_command(OUTPUT "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib/libhl.so"
         COMMAND "make"
+        COMMAND "ln" "libhl.so.2.3.0" "libhl.so.2"
+        COMMAND "ln" "libhl.so.2.3.0" "libhl.so"
         WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib"
     )
     add_custom_target(hllib
