@@ -136,22 +136,5 @@ endif()
 set_target_properties(${PROJ_NAME} PROPERTIES ${TARGET_PROPERTIES})
 
 # hllib
-if(WIN32)
-	include_external_msproject(hllib ${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/sln/vs17/HLLib/HLLib.vcxproj)
-	set_target_properties(hllib PROPERTIES FOLDER third_party_libs)
-else()
-    #Command needed for makefile: make -C HLLib -f Makefile
-    add_custom_command(OUTPUT "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib/libhl.so"
-        COMMAND "make"
-        COMMAND "ln" "libhl.so.2.3.0" "libhl.so.2"
-        COMMAND "ln" "libhl.so.2.3.0" "libhl.so"
-        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib"
-    )
-    add_custom_target(hllib
-        #SOURCES "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib/"
-        DEPENDS "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib/libhl.so"
-    )
-    set_target_properties(hllib PROPERTIES FOLDER third_party_libs)
-endif()
-
-add_dependencies(${PROJ_NAME} hllib)
+add_subdirectory(third_party_libs/hllib)
+add_dependencies(${PROJ_NAME} HLLib zlib)
