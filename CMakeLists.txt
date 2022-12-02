@@ -63,11 +63,7 @@ link_external_library(zlib)
 
 set(DEPENDENCY_HLLIB_INCLUDE ${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib CACHE PATH "Path to include directory.")
 
-if(WIN32)
-	search_lib_recursive_custom(DEPENDENCY_HLLIB_LIBRARY HLLib "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/sln/vs17/HLLib/x64/Release")
-else()
-	search_lib_recursive_custom(DEPENDENCY_HLLIB_LIBRARY hl "${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib")
-endif()
+search_lib_recursive(DEPENDENCY_HLLIB_LIBRARY third_party_libs/hllib/${BINARY_PRAGMA_DIR} HLLib)
 
 link_external_library(HLLib)
 add_include_dir(zlib_build)
