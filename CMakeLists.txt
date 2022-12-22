@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.9)
 
 set(INCLUDE_DIRS)
 function(add_include_dir IDENTIFIER)
@@ -61,20 +61,15 @@ link_external_library(mathutil)
 link_external_library(vfilesystem)
 link_external_library(zlib)
 
-if(WIN32)
-	option(CONFIG_ENABLE_BETHESDA_FORMATS "Enable support for ba2 and bsa archive files." ON)
-	link_external_library(ba2)
-	link_external_library(bsa)
-	add_external_library(boost_filesystem)
-	add_external_library(boost_locale)
-endif()
+set(DEPENDENCY_HLLIB_INCLUDE ${CMAKE_CURRENT_LIST_DIR}/third_party_libs/hllib/HLLib CACHE PATH "Path to include directory.")
+
+search_lib_recursive(DEPENDENCY_HLLIB_LIBRARY third_party_libs/hllib/${BINARY_PRAGMA_DIR} HLLib)
 
 link_external_library(HLLib)
 add_include_dir(zlib_build)
 
 set(DEFINITIONS
 	ARCHIVELIB_DLL
-	LIBBSA_STATIC
 )
 
 if(CONFIG_ENABLE_BETHESDA_FORMATS)
@@ -125,8 +120,6 @@ endforeach(LIB)
 target_include_directories(${PROJ_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
 target_include_directories(${PROJ_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
 
-target_include_directories(${PROJ_NAME} PRIVATE ${DEPENDENCY_BSA_INCLUDE}/../src/api)
-
 foreach(INCLUDE_PATH IN LISTS INCLUDE_DIRS)
 	target_include_directories(${PROJ_NAME} PRIVATE ${${INCLUDE_PATH}})
 endforeach(INCLUDE_PATH)
@@ -138,6 +131,6 @@ if(DEFINED PRECOMPILED_HEADER)
 endif()
 set_target_properties(${PROJ_NAME} PROPERTIES ${TARGET_PROPERTIES})
 
-if(CONFIG_ENABLE_BETHESDA_FORMATS)
-add_dependencies(${PROJ_NAME} bsa)
-endif()
+# hllib
+add_subdirectory(third_party_libs/hllib)
+add_dependencies(${PROJ_NAME} HLLib zlib)
