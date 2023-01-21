@@ -175,7 +175,7 @@ namespace uarch
 		bool MountGame(const GameMountInfo &mountInfo);
 		void Start();
 		void WaitUntilInitializationComplete();
-		void SetVerbose(bool verbose);
+		void SetLogHandler(const util::LogHandler &logHandler);
 		bool IsVerbose() const;
 
 		void InitializeGame(const GameMountInfo &mountInfo,uint32_t gameMountInfoIdx);
@@ -225,7 +225,7 @@ namespace uarch
 		std::thread m_loadThread;
 		bool m_initialized = false;
 		std::atomic<bool> m_cancel = false;
-		std::atomic<bool> m_verbose = false;
+		util::LogHandler m_logHandler;
 
 		std::vector<util::Path> m_steamRootPaths;
 		std::unordered_set<std::string> m_mountedVPKArchives {};
@@ -450,7 +450,7 @@ uarch::GameMountManager::~GameMountManager()
 std::vector<util::Path> uarch::GameMountManager::FindSteamGamePaths(const std::string &relPath)
 {
 	if(IsVerbose())
-		std::cout<<"[uarch] Searching for steam game path '"<<relPath<<"'..."<<std::endl;
+		m_logHandler("Searching for steam game path '" +relPath +"'...",util::LogSeverity::Info);
 
 	auto rootRelPath = util::Path::CreatePath(relPath);
 	while(rootRelPath.GetComponentCount() > 2) // strip down to 'common/<game>'
@@ -461,10 +461,10 @@ std::vector<util::Path> uarch::GameMountManager::FindSteamGamePaths(const std::s
 	{
 		auto fullPath = steamPath +"steamapps/" +relPath;
 		if(IsVerbose())
-			std::cout<<"[uarch] Checking '"<<fullPath<<"'...";
+			m_logHandler("Checking '" +fullPath.GetString() +"'...",util::LogSeverity::Info);
 		auto result = FileManager::IsSystemDir(fullPath.GetString());
 		if(IsVerbose())
-			std::cout<<' '<<(result ? "Found!" : "Not found!")<<std::endl;
+			m_logHandler(result ? "Found!" : "Not found!",util::LogSeverity::Info);
 		if(result == false)
 			continue;
 		candidates.push_back(fullPath);
@@ -506,25 +506,25 @@ void uarch::GameMountManager::MountWorkshopAddons(BaseMountedGame &game,SteamSet
 		std::vector<std::string> workshopAddonPaths;
 		FileManager::FindSystemFiles((path.GetString() +"*").c_str(),nullptr,&workshopAddonPaths,true);
 		if(IsVerbose())
-			std::cout<<"[uarch] Mounting "<<workshopAddonPaths.size()<<" workshop addons in '"<<path<<"'..."<<std::endl;
+			m_logHandler("Mounting " +std::to_string(workshopAddonPaths.size()) +" workshop addons in '" +path.GetString() +"'...",util::LogSeverity::Info);
 		for(auto &workshopAddonPath : workshopAddonPaths)
 		{
 			auto absWorkshopAddonPath = path +util::get_normalized_path(workshopAddonPath);
 			if(IsVerbose())
-				std::cout<<"[uarch] Mounting workshop addon '"<<absWorkshopAddonPath<<"'..."<<std::endl;
+				m_logHandler("Mounting workshop addon '" +absWorkshopAddonPath.GetString() +"'...",util::LogSeverity::Info);
 			// TODO
 
 			std::vector<std::string> vpkFilePaths {};
 			FileManager::FindSystemFiles((absWorkshopAddonPath.GetString() +"*.vpk").c_str(),&vpkFilePaths,nullptr,true);
 			if(IsVerbose() && vpkFilePaths.empty() == false)
-				std::cout<<"[uarch] Found "<<vpkFilePaths.size()<<" VPK archive files in workshop addon '"<<path<<"'! Mounting..."<<std::endl;
+				m_logHandler("Found " +std::to_string(vpkFilePaths.size()) +" VPK archive files in workshop addon '" +path.GetString() +"'! Mounting...",util::LogSeverity::Info);
 			for(auto &vpkFilePath : vpkFilePaths)
 			{
 				auto archive = hl::Archive::Create(absWorkshopAddonPath.GetString() +vpkFilePath);
 				if(archive == nullptr)
 					continue;
 				if(IsVerbose())
-					std::cout<<"[uarch] Mounting VPK archive '"<<absWorkshopAddonPath +vpkFilePath<<"'..."<<std::endl;
+					m_logHandler("Mounting VPK archive '" +absWorkshopAddonPath.GetString() +vpkFilePath +"'...",util::LogSeverity::Info);
 				// TODO
 				//s_hlArchives.push_back(archive);
 				//traverse_vpk_archive(s_hlArchives.back().root,archive->GetRoot());
@@ -542,14 +542,14 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 	if(mountInfo.steamSettings.has_value())
 	{
 		if(IsVerbose())
-			std::cout<<"[uarch] Found steam settings for game '"<<mountInfo.identifier<<"'! Attempting to locate game directory..."<<std::endl;
+			m_logHandler("Found steam settings for game '" +mountInfo.identifier +"'! Attempting to locate game directory...",util::LogSeverity::Info);
 		for(auto &gamePath : mountInfo.steamSettings->gamePaths)
 		{
 			auto steamGamePaths = FindSteamGamePaths(gamePath);
 			for(auto &steamGamePath : steamGamePaths)
 			{
 				if(IsVerbose())
-					std::cout<<"[uarch] Successfully located game in '"<<steamGamePath<<"'! Adding to mount list..."<<std::endl;
+					m_logHandler("Successfully located game in '" +steamGamePath.GetString() +"'! Adding to mount list...",util::LogSeverity::Info);
 				absoluteGamePaths.push_back(steamGamePath.GetString());
 			}
 		}
@@ -562,21 +562,21 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 			if(IsVerbose())
 			{
 				if(result)
-					std::cout<<"[uarch] Found game location for '"<<mountInfo.identifier<<"' in '"<<*mountInfo.absolutePath<<"'! Adding to mount list..."<<std::endl;
+					m_logHandler("Found game location for '" +mountInfo.identifier +"' in '" +*mountInfo.absolutePath +"'! Adding to mount list...",util::LogSeverity::Info);
 				else
-					std::cout<<"[uarch] WARNING: Could not find directory '"<<*mountInfo.absolutePath<<"' for game '"<<mountInfo.identifier<<"'! Ignoring..."<<std::endl;
+					m_logHandler("Could not find directory '" +*mountInfo.absolutePath +"' for game '" +mountInfo.identifier +"'! Ignoring...",util::LogSeverity::Warning);
 			}
 			if(result)
 				absoluteGamePaths.push_back(*mountInfo.absolutePath);
 		}
 		else if(IsVerbose())
-			std::cout<<"[uarch] WARNING: No steam game path or absolute game path have been specified for game '"<<mountInfo.identifier<<"'! Is this intended?"<<std::endl;
+			m_logHandler("No steam game path or absolute game path have been specified for game '" +mountInfo.identifier +"'! Is this intended?",util::LogSeverity::Warning);
 	}
 
 	if(absoluteGamePaths.empty())
 	{
 		if(IsVerbose())
-			std::cout<<"[uarch] WARNING: Unable to locate absolute game path for game '"<<mountInfo.identifier<<"'! Skipping..."<<std::endl;
+			m_logHandler("Unable to locate absolute game path for game '" +mountInfo.identifier +"'! Skipping...",util::LogSeverity::Warning);
 		return;
 	}
 	std::unique_ptr<BaseMountedGame> game = nullptr;
@@ -600,7 +600,7 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 	if(game == nullptr)
 	{
 		if(IsVerbose())
-			std::cout<<"[uarch] Unsupported engine "<<to_string(mountInfo.gameEngine)<<" for game '"<<mountInfo.identifier<<"'! Skipping..."<<std::endl;
+			m_logHandler("Unsupported engine " +to_string(mountInfo.gameEngine) +" for game '" +mountInfo.identifier +"'! Skipping...",util::LogSeverity::Warning);
 		return;
 	}
 	for(auto &absPath : absoluteGamePaths)
@@ -616,7 +616,7 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 		if(engineData)
 		{
 			if(IsVerbose())
-				std::cout<<"[uarch] Mounting "<<engineData->vpkList.size()<<" VPK archive files for game '"<<mountInfo.identifier<<"'..."<<std::endl;
+				m_logHandler("Mounting " +std::to_string(engineData->vpkList.size()) +" VPK archive files for game '" +mountInfo.identifier +"'...",util::LogSeverity::Info);
 			for(auto &pair : engineData->vpkList)
 			{
 				auto found = false;
@@ -629,12 +629,12 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 					if(m_mountedVPKArchives.find(fileName) != m_mountedVPKArchives.end() && ustring::compare<std::string>(fileName,"pak01_dir.vpk",false) == false)
 					{
 						if(IsVerbose())
-							std::cout<<"[uarch] VPK '"<<fileName<<"' has already been loaded before! Ignoring..."<<std::endl;
+							m_logHandler("VPK '" +fileName +"' has already been loaded before! Ignoring...",util::LogSeverity::Info);
 						continue;
 					}
 
 					if(IsVerbose())
-						std::cout<<"[uarch] Mounting VPK '"<<vpkPath.GetString()<<"'..."<<std::endl;
+						m_logHandler("Mounting VPK '" +vpkPath.GetString() +"'...",util::LogSeverity::Info);
 					auto archive = hl::Archive::Create(vpkPath.GetString());
 					if(archive == nullptr)
 						continue;
@@ -646,7 +646,7 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 					break;
 				}
 				if(found == false && IsVerbose())
-					std::cout<<"[uarch] WARNING: Unable to find VPK archive '"<<pair.first<<"' for game '"<<mountInfo.identifier<<"'!"<<std::endl;
+					m_logHandler("Unable to find VPK archive '" +pair.first +"' for game '" +mountInfo.identifier +"'!",util::LogSeverity::Warning);
 			}
 		}
 		break;
@@ -658,7 +658,7 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 		if(engineData)
 		{
 			if(IsVerbose())
-				std::cout<<"[uarch] Mounting "<<engineData->bsaList.size()<<" BSA archive files for game '"<<mountInfo.identifier<<"'..."<<std::endl;
+				m_logHandler("Mounting "<<engineData->bsaList.size()<<" BSA archive files for game '"<<mountInfo.identifier<<"'...",util::LogSeverity::Info);
 			for(auto &pair : engineData->bsaList)
 			{
 				auto found = false;
@@ -666,7 +666,7 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 				{
 					util::Path bsaPath {absGamePath +pair.first};
 					if(IsVerbose())
-						std::cout<<"[uarch] Mounting BSA '"<<bsaPath.GetString()<<"'..."<<std::endl;
+						m_logHandler("Mounting BSA '"<<bsaPath.GetString()<<"'...",util::LogSeverity::Info);
 
 					bsa_handle hBsa = nullptr;
 					auto r = bsa_open(&hBsa,bsaPath.GetString().c_str());
@@ -679,7 +679,7 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 						fileTable.root.Add(GetNormalizedGamebryoPath(asset.path),false);
 				}
 				if(found == false && IsVerbose())
-					std::cout<<"[uarch] WARNING: Unable to find BSA archive '"<<pair.first<<"' for game '"<<mountInfo.identifier<<"'!"<<std::endl;
+					m_logHandler("Unable to find BSA archive '"<<pair.first<<"' for game '"<<mountInfo.identifier<<"'!",util::LogSeverity::Warning);
 			}
 		}
 		break;
@@ -690,7 +690,7 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 		if(engineData)
 		{
 			if(IsVerbose())
-				std::cout<<"[uarch] Mounting "<<engineData->ba2List.size()<<" BA2 archive files for game '"<<mountInfo.identifier<<"'..."<<std::endl;
+				m_logHandler("Mounting "<<engineData->ba2List.size()<<" BA2 archive files for game '"<<mountInfo.identifier<<"'...",util::LogSeverity::Info);
 			for(auto &pair : engineData->ba2List)
 			{
 				auto found = false;
@@ -698,7 +698,7 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 				{
 					util::Path bsaPath {absGamePath +pair.first};
 					if(IsVerbose())
-						std::cout<<"[uarch] Mounting BA2 '"<<bsaPath.GetString()<<"'..."<<std::endl;
+						m_logHandler("Mounting BA2 '"<<bsaPath.GetString()<<"'...",util::LogSeverity::Info);
 
 					auto ba2 = std::make_shared<BA2>();
 					try
@@ -716,7 +716,7 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 						fileTable.root.Add(GetNormalizedGamebryoPath(asset),false);
 				}
 				if(found == false && IsVerbose())
-					std::cout<<"[uarch] WARNING: Unable to find BA2 archive '"<<pair.first<<"' for game '"<<mountInfo.identifier<<"'!"<<std::endl;
+					m_logHandler("Unable to find BA2 archive '"<<pair.first<<"' for game '"<<mountInfo.identifier<<"'!",util::LogSeverity::Warning);
 			}
 		}
 		break;
@@ -735,8 +735,8 @@ void uarch::GameMountManager::InitializeGame(const GameMountInfo &mountInfo,uint
 	m_mountedGames.push_back(std::move(game));
 }
 
-void uarch::GameMountManager::SetVerbose(bool verbose) {m_verbose = verbose;}
-bool uarch::GameMountManager::IsVerbose() const {return m_verbose;}
+void uarch::GameMountManager::SetLogHandler(const util::LogHandler &logHandler) {m_logHandler = logHandler;}
+bool uarch::GameMountManager::IsVerbose() const {return m_logHandler != nullptr;}
 
 void uarch::GameMountManager::UpdateGamePriorities()
 {
@@ -795,9 +795,9 @@ void uarch::GameMountManager::Start()
 
 			if(IsVerbose())
 			{
-				std::cout<<"[uarch] Found "<<m_steamRootPaths.size()<<" steam locations:"<<std::endl;
+				m_logHandler("Found " +std::to_string(m_steamRootPaths.size()) +" steam locations:",util::LogSeverity::Info);
 				for(auto &path : m_steamRootPaths)
-					std::cout<<"[uarch] "<<path<<std::endl;
+					m_logHandler(path.GetString(),util::LogSeverity::Info);
 			}
 
 			for(auto i=decltype(m_mountedGameInfos.size()){0u};i<m_mountedGameInfos.size();++i)
@@ -929,10 +929,10 @@ void uarch::set_mounted_game_priority(const std::string &gameIdentifier,int32_t 
 	g_gameMountManager->UpdateGamePriorities();
 }
 
-void uarch::set_verbose(bool verbose)
+void uarch::set_log_handler(const util::LogHandler &loghandler)
 {
 	if(g_gameMountManager)
-		g_gameMountManager->SetVerbose(verbose);
+		g_gameMountManager->SetLogHandler(loghandler);
 }
 
 bool uarch::mount_game(const GameMountInfo &mountInfo)
