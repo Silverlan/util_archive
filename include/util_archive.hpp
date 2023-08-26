@@ -10,6 +10,7 @@
 #include <vector>
 #include <optional>
 #include <fsys/filesystem.h>
+#include <sharedutils/util_log.hpp>
 
 #ifdef ARCHIVELIB_STATIC
 	#define DLLARCHLIB
@@ -35,7 +36,7 @@ namespace uarch
 	DLLARCHLIB bool get_mounted_game_paths(const std::string &game,std::vector<std::string> &outPaths);
 	DLLARCHLIB std::optional<int32_t> get_mounted_game_priority(const std::string &game);
 	DLLARCHLIB void set_mounted_game_priority(const std::string &game,int32_t priority);
-	DLLARCHLIB void set_verbose(bool verbose);
+	DLLARCHLIB void set_log_handler(const util::LogHandler &loghandler);
 	DLLARCHLIB void close();
 
 	struct GameMountInfo;
