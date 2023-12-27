@@ -133,4 +133,4 @@ set_target_properties(${PROJ_NAME} PROPERTIES ${TARGET_PROPERTIES})
 
 # hllib
 add_subdirectory(third_party_libs/hllib)
-add_dependencies(${PROJ_NAME} HLLib zlib sharedutils)
+add_dependencies(${PROJ_NAME} HLLib zlib sharedutils mathutil vfilesystem)
