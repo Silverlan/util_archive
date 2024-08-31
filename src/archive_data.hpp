@@ -20,6 +20,7 @@ namespace uarch
 			void Add(const std::string *path,uint32_t dirCount,bool bDir);
 		};
 		ArchiveFileTable(const std::shared_ptr<void> &phandle);
+		std::string identifier;
 		std::shared_ptr<void> handle = nullptr;
 		Item root = {"",true};
 	};

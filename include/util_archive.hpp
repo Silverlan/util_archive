@@ -37,6 +37,7 @@ namespace uarch
 	DLLARCHLIB std::optional<int32_t> get_mounted_game_priority(const std::string &game);
 	DLLARCHLIB void set_mounted_game_priority(const std::string &game,int32_t priority);
 	DLLARCHLIB void set_log_handler(const util::LogHandler &loghandler);
+	DLLARCHLIB void set_log_severity(util::LogSeverity severity);
 	DLLARCHLIB void close();
 
 	struct GameMountInfo;
