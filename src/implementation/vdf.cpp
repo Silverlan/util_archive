@@ -1,36 +1,42 @@
-#include "util_vdf.hpp"
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+module;
+
 #include <sharedutils/util_markup_file.hpp>
 #include <fsys/filesystem.h>
 
-static util::MarkupFile::ResultCode read_vdf_block(util::MarkupFile &mf,vdf::DataBlock &block,uint32_t depth=0)
+module pragma.gamemount;
+
+import :vdf;
+
+static util::MarkupFile::ResultCode read_vdf_block(util::MarkupFile &mf, pragma::gamemount::vdf::DataBlock &block, uint32_t depth = 0)
 {
 	std::string key;
 	auto r = util::MarkupFile::ResultCode::Ok;
-	while(r == util::MarkupFile::ResultCode::Ok)
-	{
+	while(r == util::MarkupFile::ResultCode::Ok) {
 		char token {};
-		if((r=mf.ReadNextToken(token)) != util::MarkupFile::ResultCode::Ok)
+		if((r = mf.ReadNextToken(token)) != util::MarkupFile::ResultCode::Ok)
 			return r;
-		if(token == '}')
-		{
+		if(token == '}') {
 			if(depth == 0)
 				return util::MarkupFile::ResultCode::Error;
 			return r;
 		}
 
-		if((r=mf.ReadNextString(key)) != util::MarkupFile::ResultCode::Ok)
+		if((r = mf.ReadNextString(key)) != util::MarkupFile::ResultCode::Ok)
 			return r;
-		if((r=mf.ReadNextToken(token)) != util::MarkupFile::ResultCode::Ok)
+		if((r = mf.ReadNextToken(token)) != util::MarkupFile::ResultCode::Ok)
 			return r;
-		std::transform(key.begin(),key.end(),key.begin(),[](unsigned char c){return std::tolower(c);});
-		if(token == '{')
-		{
+		std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return std::tolower(c); });
+		if(token == '{') {
 			mf.IncrementFilePos();
-			auto it = block.children.insert(std::make_pair(key,vdf::DataBlock{})).first;
-			auto r = read_vdf_block(mf,it->second,depth +1);
+			auto it = block.children.insert(std::make_pair(key, pragma::gamemount::vdf::DataBlock {})).first;
+			auto r = read_vdf_block(mf, it->second, depth + 1);
 			if(r != util::MarkupFile::ResultCode::Ok)
 				return r;
-			if((r=mf.ReadNextToken(token)) != util::MarkupFile::ResultCode::Ok)
+			if((r = mf.ReadNextToken(token)) != util::MarkupFile::ResultCode::Ok)
 				return r;
 			if(token != '}')
 				return util::MarkupFile::ResultCode::Error;
@@ -40,26 +46,26 @@ static util::MarkupFile::ResultCode read_vdf_block(util::MarkupFile &mf,vdf::Dat
 			continue;
 		}
 		std::string value;
-		if((r=mf.ReadNextString(value)) != util::MarkupFile::ResultCode::Ok)
+		if((r = mf.ReadNextString(value)) != util::MarkupFile::ResultCode::Ok)
 			return r;
 		block.keyValues[key] = value;
 	}
 	return r;
 }
 
-bool vdf::get_external_steam_locations(const std::string &steamRootPath,std::vector<std::string> &outExtLocations)
+bool pragma::gamemount::vdf::get_external_steam_locations(const std::string &steamRootPath, std::vector<std::string> &outExtLocations)
 {
-	auto f = FileManager::OpenSystemFile((steamRootPath +"/steamapps/libraryfolders.vdf").c_str(),"r");
+	auto f = FileManager::OpenSystemFile((steamRootPath + "/steamapps/libraryfolders.vdf").c_str(), "r");
 	if(f == nullptr)
 		return false;
 	auto lenContents = f->GetSize();
 
 	DataStream dsContents {static_cast<uint32_t>(lenContents)};
-	f->Read(dsContents->GetData(),lenContents);
+	f->Read(dsContents->GetData(), lenContents);
 
 	util::MarkupFile mf {dsContents};
-	auto vdfData = std::make_shared<vdf::Data>();
-	auto r = read_vdf_block(mf,vdfData->dataBlock);
+	auto vdfData = std::make_shared<pragma::gamemount::vdf::Data>();
+	auto r = read_vdf_block(mf, vdfData->dataBlock);
 	if(r != util::MarkupFile::ResultCode::Ok)
 		return false;
 	auto it = vdfData->dataBlock.children.find("libraryfolders");
@@ -67,22 +73,20 @@ bool vdf::get_external_steam_locations(const std::string &steamRootPath,std::vec
 		return false;
 	auto &libraryFolders = it->second;
 	auto fAddPath = [&outExtLocations](std::string path) {
-		ustring::replace(path,"\\\\","/");
+		ustring::replace(path, "\\\\", "/");
 		if(path.empty() == false && path.back() == '/')
 			path.pop_back();
 		outExtLocations.push_back(path);
 	};
-	for(uint8_t i=1;i<=8;++i) // 8 is supposedly the max number of external locations you can specify in steam
+	for(uint8_t i = 1; i <= 8; ++i) // 8 is supposedly the max number of external locations you can specify in steam
 	{
 		auto itKv = libraryFolders.keyValues.find(std::to_string(i));
 		if(itKv != libraryFolders.keyValues.end())
 			fAddPath(itKv->second);
-		else
-		{
+		else {
 			// Newer versions of Steam use a different format
 			auto itChild = libraryFolders.children.find(std::to_string(i));
-			if(itChild != libraryFolders.children.end())
-			{
+			if(itChild != libraryFolders.children.end()) {
 				auto itMounted = itChild->second.keyValues.find("mounted");
 				if(itMounted != itChild->second.keyValues.end() && itMounted->second == "0")
 					continue;

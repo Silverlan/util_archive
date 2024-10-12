@@ -2,16 +2,21 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __GAME_MOUNT_INFO_HPP__
-#define __GAME_MOUNT_INFO_HPP__
+module;
 
 #include <cinttypes>
-#include "util_archive.hpp"
+#include <limits>
+#include <string>
+#include <vector>
+#include <optional>
+#include <memory>
+#include <unordered_map>
+#include "definitions.hpp"
 
-namespace uarch
-{
-	enum class GameEngine : uint8_t
-	{
+export module pragma.gamemount:info;
+
+export namespace pragma::gamemount {
+	enum class GameEngine : uint8_t {
 		SourceEngine = 0,
 		Source2,
 		Gamebryo,
@@ -23,51 +28,35 @@ namespace uarch
 	};
 	DLLARCHLIB GameEngine engine_name_to_enum(const std::string &name);
 	DLLARCHLIB std::string to_string(GameEngine engine);
-	struct DLLARCHLIB SteamSettings
-	{
+	struct DLLARCHLIB SteamSettings {
 		using AppId = uint32_t;
 		AppId appId = std::numeric_limits<AppId>::max();
 		std::vector<std::string> gamePaths;
 
 		bool mountWorkshop = false;
 	};
-	struct BaseEngineSettings
-	{
-		virtual ~BaseEngineSettings()=default;
+	struct BaseEngineSettings {
+		virtual ~BaseEngineSettings() = default;
 	};
-	struct DLLARCHLIB SourceEngineSettings
-		: public BaseEngineSettings
-	{
-		struct VPKInfo
-		{
+	struct DLLARCHLIB SourceEngineSettings : public BaseEngineSettings {
+		struct VPKInfo {
 			std::string rootDir;
 		};
-		std::unordered_map<std::string,VPKInfo> vpkList;
+		std::unordered_map<std::string, VPKInfo> vpkList;
 	};
 	using Source2Settings = SourceEngineSettings;
-	struct DLLARCHLIB GamebryoSettings
-		: public BaseEngineSettings
-	{
-		struct BSAInfo
-		{
-
-		};
-		std::unordered_map<std::string,BSAInfo> bsaList;
+	struct DLLARCHLIB GamebryoSettings : public BaseEngineSettings {
+		struct BSAInfo {};
+		std::unordered_map<std::string, BSAInfo> bsaList;
 	};
-	struct DLLARCHLIB CreationEngineSettings
-		: public BaseEngineSettings
-	{
-		struct BA2Info
-		{
-
-		};
-		std::unordered_map<std::string,BA2Info> ba2List;
+	struct DLLARCHLIB CreationEngineSettings : public BaseEngineSettings {
+		struct BA2Info {};
+		std::unordered_map<std::string, BA2Info> ba2List;
 	};
-	struct DLLARCHLIB GameMountInfo
-	{
-		GameMountInfo()=default;
-		GameMountInfo(const GameMountInfo&)=default;
-		GameMountInfo &operator=(const GameMountInfo&)=default;
+	struct DLLARCHLIB GameMountInfo {
+		GameMountInfo() = default;
+		GameMountInfo(const GameMountInfo &) = default;
+		GameMountInfo &operator=(const GameMountInfo &) = default;
 		std::string identifier;
 		bool enabled = true;
 		std::optional<SteamSettings> steamSettings {};
@@ -80,5 +69,3 @@ namespace uarch
 		BaseEngineSettings *SetEngine(GameEngine engine);
 	};
 };
-
-#endif
