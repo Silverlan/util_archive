@@ -7,6 +7,7 @@ module;
 #include <sharedutils/util_string.h>
 #include <sharedutils/util_path.hpp>
 #include <algorithm>
+#include <memory>
 
 module pragma.gamemount;
 
