@@ -8,8 +8,10 @@ module;
 #include <string>
 #include <vector>
 #include <optional>
+#include <unordered_set>
 #include <fsys/filesystem.h>
 #include <sharedutils/util_log.hpp>
+#include <sharedutils/util_path.hpp>
 #include "definitions.hpp"
 
 export module pragma.gamemount;
@@ -32,5 +34,6 @@ export namespace pragma::gamemount {
 	struct GameMountInfo;
 	DLLARCHLIB bool mount_game(const GameMountInfo &mountInfo);
 	DLLARCHLIB const std::vector<GameMountInfo> &get_game_mount_infos();
+	DLLARCHLIB const std::unordered_map<std::string, util::Path> &get_mounted_vpk_archives();
 	DLLARCHLIB void initialize();
 };

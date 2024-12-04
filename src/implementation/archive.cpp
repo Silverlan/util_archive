@@ -197,6 +197,8 @@ namespace pragma::gamemount {
 			return itGame->get();
 		}
 
+		const std::unordered_map<std::string, util::Path> &GetMountedVpkArchives() const { return m_mountedVPKArchives; }
+
 		static std::string GetNormalizedPath(const std::string &path);
 		static std::string GetNormalizedSourceEnginePath(const std::string &path);
 #ifdef ENABLE_BETHESDA_FORMATS
@@ -216,7 +218,7 @@ namespace pragma::gamemount {
 		std::atomic<bool> m_cancel = false;
 
 		std::vector<util::Path> m_steamRootPaths;
-		std::unordered_set<std::string> m_mountedVPKArchives {};
+		std::unordered_map<std::string, util::Path> m_mountedVPKArchives {};
 	};
 };
 
@@ -550,17 +552,17 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 	std::unique_ptr<BaseMountedGame> game = nullptr;
 	switch(mountInfo.gameEngine) {
 	case GameEngine::SourceEngine:
-		game = std::make_unique<SourceEngineMountedGame>(mountInfo.identifier, GameEngine::SourceEngine);
+		game = std::make_unique<SourceEngineMountedGame>(mountInfo.identifier, mountInfo.gameEngine);
 		break;
 	case GameEngine::Source2:
-		game = std::make_unique<Source2MountedGame>(mountInfo.identifier, GameEngine::Source2);
+		game = std::make_unique<Source2MountedGame>(mountInfo.identifier, mountInfo.gameEngine);
 		break;
 #ifdef ENABLE_BETHESDA_FORMATS
 	case GameEngine::Gamebryo:
-		game = std::make_unique<GamebryoMountedGame>(mountInfo.identifier, GameEngine::Gamebryo);
+		game = std::make_unique<GamebryoMountedGame>(mountInfo.identifier, mountInfo.gameEngine);
 		break;
 	case GameEngine::CreationEngine:
-		game = std::make_unique<CreationEngineMountedGame>(mountInfo.identifier, GameEngine::CreationEngine);
+		game = std::make_unique<CreationEngineMountedGame>(mountInfo.identifier, mountInfo.gameEngine);
 		break;
 #endif
 	}
@@ -600,7 +602,7 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 						if(archive == nullptr)
 							continue;
 						found = true;
-						m_mountedVPKArchives.insert(fileName);
+						m_mountedVPKArchives.insert(std::make_pair(fileName, vpkPath));
 						archive->SetRootDirectory(pair.second.rootDir);
 						auto &fileTable = game->AddArchiveFileTable(fileName, archive);
 						InitializeArchiveFileTable(fileTable.root, archive->GetRoot());
@@ -873,6 +875,13 @@ bool pragma::gamemount::mount_game(const GameMountInfo &mountInfo)
 		return false;
 	g_gameMountManager->MountGame(mountInfo);
 	return true;
+}
+
+const std::unordered_map<std::string, util::Path> &pragma::gamemount::get_mounted_vpk_archives()
+{
+	setup();
+	initialize(false);
+	return g_gameMountManager->GetMountedVpkArchives();
 }
 
 const std::vector<pragma::gamemount::GameMountInfo> &pragma::gamemount::get_game_mount_infos()
