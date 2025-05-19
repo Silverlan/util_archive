@@ -728,7 +728,13 @@ void pragma::gamemount::GameMountManager::Start()
 			rootSteamPath = rootSteamPathLink;
 		}
 		else {
-			std::cout << "[uarch] Cannot find steam installation.";
+			auto snapPath = util::DirPath(std::string{pHomePath}) + "/snap/steam/common/.local/share/Steam/";
+			if(filemanager::is_system_dir(snapPath.GetString()) == true)
+				rootSteamPath = snapPath.GetString();
+			else {
+				if(should_log(util::LogSeverity::Info))
+					log("Cannot find steam installation!", util::LogSeverity::Info);
+			}
 			return;
 		}
 		//rootSteamPath += "/.local/share/Steam";
