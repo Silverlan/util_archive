@@ -36,4 +36,5 @@ export namespace pragma::gamemount {
 	DLLARCHLIB const std::vector<GameMountInfo> &get_game_mount_infos();
 	DLLARCHLIB const std::unordered_map<std::string, util::Path> &get_mounted_vpk_archives();
 	DLLARCHLIB void initialize();
+	DLLARCHLIB const std::vector<util::Path> &get_steam_root_paths();
 };

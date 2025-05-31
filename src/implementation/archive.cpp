@@ -172,6 +172,7 @@ namespace pragma::gamemount {
 		void InitializeGame(const GameMountInfo &mountInfo, uint32_t gameMountInfoIdx);
 		const std::vector<std::unique_ptr<BaseMountedGame>> &GetMountedGames() const;
 		const std::vector<GameMountInfo> &GetGameMountInfos() const { return m_mountedGameInfos; }
+		const std::vector<util::Path> &GetSteamRootPaths() const { return m_steamRootPaths; }
 		void UpdateGamePriorities();
 
 		const GameMountInfo *FindGameMountInfo(const std::string &identifier) const
@@ -964,4 +965,11 @@ bool pragma::gamemount::load(const std::string &path, std::vector<uint8_t> &data
 			return true;
 	}
 	return false;
+}
+
+const std::vector<util::Path> &pragma::gamemount::get_steam_root_paths()
+{
+	setup();
+	initialize(true);
+	return g_gameMountManager->GetSteamRootPaths();
 }
