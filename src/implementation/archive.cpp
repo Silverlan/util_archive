@@ -41,7 +41,6 @@ module pragma.gamemount;
 import :info;
 import :archive;
 import :archivedata;
-import :vdf;
 
 static util::LogHandler g_logHandler;
 static util::LogSeverity g_logSeverity = util::LogSeverity::Info;
@@ -173,6 +172,7 @@ namespace pragma::gamemount {
 		const std::vector<std::unique_ptr<BaseMountedGame>> &GetMountedGames() const;
 		const std::vector<GameMountInfo> &GetGameMountInfos() const { return m_mountedGameInfos; }
 		const std::vector<util::Path> &GetSteamRootPaths() const { return m_steamRootPaths; }
+		void SetSteamRootPaths(const std::vector<util::Path> &paths) { m_steamRootPaths = paths; }
 		void UpdateGamePriorities();
 
 		const GameMountInfo *FindGameMountInfo(const std::string &identifier) const
@@ -713,42 +713,9 @@ void pragma::gamemount::GameMountManager::Start()
 	m_initialized = true;
 	m_loadThread = std::thread {[this]() {
 		hlInitialize();
-		std::string rootSteamPath;
-#ifdef _WIN32
-		if(util::get_registry_key_value(util::HKey::CurrentUser, "SOFTWARE\\Valve\\Steam", "SteamPath", rootSteamPath) == true)
-#else
-		auto *pHomePath = getenv("HOME");
-		if(pHomePath != nullptr)
-			rootSteamPath = pHomePath;
-		else
-			rootSteamPath = "";
-		rootSteamPath += "/.steam/root";
-		char rootSteamPathLink[PATH_MAX];
-		auto *result = realpath(rootSteamPath.c_str(), rootSteamPathLink);
-		if(result != nullptr) {
-			rootSteamPath = rootSteamPathLink;
-		}
-		else {
-			auto snapPath = util::DirPath(std::string{pHomePath}) + "/snap/steam/common/.local/share/Steam/";
-			if(filemanager::is_system_dir(snapPath.GetString()) == true)
-				rootSteamPath = snapPath.GetString();
-			else {
-				if(should_log(util::LogSeverity::Info))
-					log("Cannot find steam installation!", util::LogSeverity::Info);
-			}
-			return;
-		}
-		//rootSteamPath += "/.local/share/Steam";
-#endif
+		
+		if(!m_steamRootPaths.empty())
 		{
-			m_steamRootPaths.push_back(util::get_normalized_path(rootSteamPath));
-
-			std::vector<std::string> additionalSteamPaths {};
-			pragma::gamemount::vdf::get_external_steam_locations(rootSteamPath, additionalSteamPaths);
-			m_steamRootPaths.reserve(m_steamRootPaths.size() + additionalSteamPaths.size());
-			for(auto &path : additionalSteamPaths)
-				m_steamRootPaths.push_back(util::get_normalized_path(path));
-
 			if(should_log(util::LogSeverity::Info)) {
 				log("Found " + std::to_string(m_steamRootPaths.size()) + " steam locations:", util::LogSeverity::Info);
 				for(auto &path : m_steamRootPaths)
@@ -967,9 +934,9 @@ bool pragma::gamemount::load(const std::string &path, std::vector<uint8_t> &data
 	return false;
 }
 
-const std::vector<util::Path> &pragma::gamemount::get_steam_root_paths()
+void pragma::gamemount::set_steam_root_paths(const std::vector<util::Path> &paths)
 {
 	setup();
 	initialize(true);
-	return g_gameMountManager->GetSteamRootPaths();
+	g_gameMountManager->SetSteamRootPaths(paths);
 }

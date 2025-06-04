@@ -18,7 +18,6 @@ export module pragma.gamemount;
 
 export import :info;
 export import :archive;
-export import :vdf;
 
 export namespace pragma::gamemount {
 	DLLARCHLIB VFilePtr load(const std::string &path, std::optional<std::string> *optOutSourcePath = nullptr, const std::optional<std::string> &game = {});
@@ -36,5 +35,5 @@ export namespace pragma::gamemount {
 	DLLARCHLIB const std::vector<GameMountInfo> &get_game_mount_infos();
 	DLLARCHLIB const std::unordered_map<std::string, util::Path> &get_mounted_vpk_archives();
 	DLLARCHLIB void initialize();
-	DLLARCHLIB const std::vector<util::Path> &get_steam_root_paths();
+	DLLARCHLIB void set_steam_root_paths(const std::vector<util::Path> &paths);
 };
