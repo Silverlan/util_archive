@@ -44,6 +44,7 @@ import :archivedata;
 
 static util::LogHandler g_logHandler;
 static util::LogSeverity g_logSeverity = util::LogSeverity::Info;
+static std::vector<util::Path> g_steamRootPaths;
 
 void pragma::gamemount::set_log_handler(const util::LogHandler &loghandler) { g_logHandler = loghandler; }
 void pragma::gamemount::set_log_severity(util::LogSeverity severity) { g_logSeverity = severity; }
@@ -171,8 +172,6 @@ namespace pragma::gamemount {
 		void InitializeGame(const GameMountInfo &mountInfo, uint32_t gameMountInfoIdx);
 		const std::vector<std::unique_ptr<BaseMountedGame>> &GetMountedGames() const;
 		const std::vector<GameMountInfo> &GetGameMountInfos() const { return m_mountedGameInfos; }
-		const std::vector<util::Path> &GetSteamRootPaths() const { return m_steamRootPaths; }
-		void SetSteamRootPaths(const std::vector<util::Path> &paths) { m_steamRootPaths = paths; }
 		void UpdateGamePriorities();
 
 		const GameMountInfo *FindGameMountInfo(const std::string &identifier) const
@@ -218,7 +217,6 @@ namespace pragma::gamemount {
 		bool m_initialized = false;
 		std::atomic<bool> m_cancel = false;
 
-		std::vector<util::Path> m_steamRootPaths;
 		std::unordered_map<std::string, util::Path> m_mountedVPKArchives {};
 	};
 };
@@ -441,7 +439,7 @@ std::vector<util::Path> pragma::gamemount::GameMountManager::FindSteamGamePaths(
 		rootRelPath.PopBack();
 
 	std::vector<util::Path> candidates {};
-	for(auto &steamPath : m_steamRootPaths) {
+	for(auto &steamPath : g_steamRootPaths) {
 		auto fullPath = steamPath + "steamapps/" + relPath;
 		if(should_log(util::LogSeverity::Info))
 			log("Checking '" + fullPath.GetString() + "'...", util::LogSeverity::Info);
@@ -480,7 +478,7 @@ void pragma::gamemount::GameMountManager::InitializeArchiveFileTable(pragma::gam
 
 void pragma::gamemount::GameMountManager::MountWorkshopAddons(BaseMountedGame &game, SteamSettings::AppId appId)
 {
-	for(auto &steamPath : m_steamRootPaths) {
+	for(auto &steamPath : g_steamRootPaths) {
 		auto path = steamPath + "/steamapps/workshop/content/" + std::to_string(appId) + "/";
 
 		std::vector<std::string> workshopAddonPaths;
@@ -714,11 +712,11 @@ void pragma::gamemount::GameMountManager::Start()
 	m_loadThread = std::thread {[this]() {
 		hlInitialize();
 		
-		if(!m_steamRootPaths.empty())
+		if(!g_steamRootPaths.empty())
 		{
 			if(should_log(util::LogSeverity::Info)) {
-				log("Found " + std::to_string(m_steamRootPaths.size()) + " steam locations:", util::LogSeverity::Info);
-				for(auto &path : m_steamRootPaths)
+				log("Found " + std::to_string(g_steamRootPaths.size()) + " steam locations:", util::LogSeverity::Info);
+				for(auto &path : g_steamRootPaths)
 					log(path.GetString(), util::LogSeverity::Info);
 			}
 
@@ -732,7 +730,7 @@ void pragma::gamemount::GameMountManager::Start()
 				// Determine gmod addon paths
 				// TODO
 #if 0
-				for(auto &steamPath : s_steamRootPaths)
+				for(auto &steamPath : g_steamRootPaths)
 				{
 					std::string gmodAddonPath = steamPath +"/steamapps/common/GarrysMod/garrysmod/addons/";
 					std::vector<std::string> addonDirs;
@@ -934,9 +932,4 @@ bool pragma::gamemount::load(const std::string &path, std::vector<uint8_t> &data
 	return false;
 }
 
-void pragma::gamemount::set_steam_root_paths(const std::vector<util::Path> &paths)
-{
-	setup();
-	initialize(true);
-	g_gameMountManager->SetSteamRootPaths(paths);
-}
+void pragma::gamemount::set_steam_root_paths(const std::vector<util::Path> &paths) { g_steamRootPaths = paths; }
