@@ -9,6 +9,8 @@ pr_add_dependency(${PROJ_NAME} vfilesystem TARGET PUBLIC)
 add_subdirectory(third_party_libs/hllib)
 pr_add_dependency(${PROJ_NAME} HLLib TARGET)
 
+set_target_properties(HLLib PROPERTIES SKIP_BUILD_RPATH TRUE SKIP_INSTALL_RPATH TRUE)
+
 pr_init_module(${PROJ_NAME})
 
 pr_add_compile_definitions(${PROJ_NAME} -DARCHIVELIB_DLL)
