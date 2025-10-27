@@ -4,6 +4,8 @@
 
 module;
 
+#include <unordered_map>
+
 #include <HLLib.h>
 #include <Wrapper.h>
 #include <memory>

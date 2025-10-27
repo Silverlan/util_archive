@@ -9,15 +9,14 @@ module;
 #include <vector>
 #include <optional>
 #include <unordered_set>
-#include <fsys/filesystem.h>
-#include <sharedutils/util_log.hpp>
-#include <sharedutils/util_path.hpp>
+#include <unordered_map>
 #include "definitions.hpp"
 
 export module pragma.gamemount;
 
 export import :info;
 export import :archive;
+export import pragma.filesystem;
 
 export namespace pragma::gamemount {
 	DLLARCHLIB VFilePtr load(const std::string &path, std::optional<std::string> *optOutSourcePath = nullptr, const std::optional<std::string> &game = {});
