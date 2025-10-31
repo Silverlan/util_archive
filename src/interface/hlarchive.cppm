@@ -4,13 +4,10 @@
 
 module;
 
-#include <string>
-#include <memory>
-#include <cinttypes>
-#include <vector>
-#include <limits>
 
 export module pragma.gamemount:archive;
+
+export import std.compat;
 
 export namespace pragma::gamemount::hl {
 	class Archive : public std::enable_shared_from_this<Archive> {
