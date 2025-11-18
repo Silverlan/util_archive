@@ -6,9 +6,6 @@ module;
 
 #include <HLLib.h>
 #include <Wrapper.h>
-#include <memory>
-#include <array>
-#include <string>
 
 module pragma.gamemount;
 

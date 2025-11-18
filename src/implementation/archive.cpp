@@ -4,24 +4,10 @@
 
 module;
 
-#include <vector>
-#include <sharedutils/util.h>
-#include <sharedutils/util_log.hpp>
-#include <sharedutils/util_string.h>
-#include <sharedutils/util_file.h>
-#include <sharedutils/util_path.hpp>
-#include <algorithm>
-#include <fsys/filesystem.h>
 #include <Wrapper.h>
 #include <HLLib.h>
-#include <iostream>
-#include <array>
-#include <unordered_set>
-#include <thread>
-#include <atomic>
 
 #ifdef __linux__
-#include <cstdlib>
 #endif
 
 #ifdef ENABLE_BETHESDA_FORMATS
@@ -33,7 +19,6 @@ module;
 #define UARCH_VERBOSE 0
 
 #if UARCH_VERBOSE == 1
-#include <iostream>
 #endif
 
 module pragma.gamemount;
@@ -711,9 +696,8 @@ void pragma::gamemount::GameMountManager::Start()
 	m_initialized = true;
 	m_loadThread = std::thread {[this]() {
 		hlInitialize();
-		
-		if(!g_steamRootPaths.empty())
-		{
+
+		if(!g_steamRootPaths.empty()) {
 			if(should_log(util::LogSeverity::Info)) {
 				log("Found " + std::to_string(g_steamRootPaths.size()) + " steam locations:", util::LogSeverity::Info);
 				for(auto &path : g_steamRootPaths)

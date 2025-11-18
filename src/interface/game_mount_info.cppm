@@ -4,16 +4,11 @@
 
 module;
 
-#include <cinttypes>
-#include <limits>
-#include <string>
-#include <vector>
-#include <optional>
-#include <memory>
-#include <unordered_map>
 #include "definitions.hpp"
 
 export module pragma.gamemount:info;
+
+export import std.compat;
 
 export namespace pragma::gamemount {
 	enum class GameEngine : uint8_t {

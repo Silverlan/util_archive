@@ -4,11 +4,9 @@
 
 module;
 
-#include <string>
-#include <vector>
-#include <memory>
-
 export module pragma.gamemount:archivedata;
+
+export import std.compat;
 
 export namespace pragma::gamemount {
 	struct ArchiveFileTable {
