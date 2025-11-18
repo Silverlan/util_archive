@@ -6,19 +6,19 @@
 #define __UTIL_ARCHIVE_DEFINITIONS_HPP__
 
 #ifdef ARCHIVELIB_STATIC
-	#define DLLARCHLIB
+#define DLLARCHLIB
 #elif ARCHIVELIB_DLL
-	#ifdef __linux__
-		#define DLLARCHLIB __attribute__((visibility("default")))
-	#else
-		#define DLLARCHLIB  __declspec(dllexport)   // export DLL information
-	#endif
+#ifdef __linux__
+#define DLLARCHLIB __attribute__((visibility("default")))
 #else
-	#ifdef __linux__
-		#define DLLARCHLIB
-	#else
-		#define DLLARCHLIB  __declspec(dllimport)   // import DLL information
-	#endif
+#define DLLARCHLIB __declspec(dllexport) // export DLL information
+#endif
+#else
+#ifdef __linux__
+#define DLLARCHLIB
+#else
+#define DLLARCHLIB __declspec(dllimport) // import DLL information
+#endif
 #endif
 
 #endif

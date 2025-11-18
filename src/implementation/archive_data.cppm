@@ -4,7 +4,6 @@
 
 module;
 
-
 export module pragma.gamemount:archivedata;
 
 export import std.compat;

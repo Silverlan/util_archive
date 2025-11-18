@@ -6,7 +6,6 @@
 
 module;
 
-
 module pragma.gamemount;
 
 int main(int argc, char *argv[])

@@ -4,7 +4,6 @@
 
 module;
 
-
 #include <HLLib.h>
 #include <Wrapper.h>
 

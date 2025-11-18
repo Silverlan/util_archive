@@ -4,8 +4,6 @@
 
 module;
 
-
-
 #include <Wrapper.h>
 #include <HLLib.h>
 
@@ -698,9 +696,8 @@ void pragma::gamemount::GameMountManager::Start()
 	m_initialized = true;
 	m_loadThread = std::thread {[this]() {
 		hlInitialize();
-		
-		if(!g_steamRootPaths.empty())
-		{
+
+		if(!g_steamRootPaths.empty()) {
 			if(should_log(util::LogSeverity::Info)) {
 				log("Found " + std::to_string(g_steamRootPaths.size()) + " steam locations:", util::LogSeverity::Info);
 				for(auto &path : g_steamRootPaths)
