@@ -13,7 +13,7 @@ export import :archive;
 export import pragma.filesystem;
 
 export namespace pragma::gamemount {
-	DLLARCHLIB VFilePtr load(const std::string &path, std::optional<std::string> *optOutSourcePath = nullptr, const std::optional<std::string> &game = {});
+	DLLARCHLIB fs::VFilePtr load(const std::string &path, std::optional<std::string> *optOutSourcePath = nullptr, const std::optional<std::string> &game = {});
 	DLLARCHLIB bool load(const std::string &path, std::vector<uint8_t> &data);
 	DLLARCHLIB bool find_files(const std::string &path, std::vector<std::string> *files, std::vector<std::string> *dirs, bool keepAbsPaths = false, const std::optional<std::string> &game = {});
 	DLLARCHLIB bool get_mounted_game_paths(const std::string &game, std::vector<std::string> &outPaths);

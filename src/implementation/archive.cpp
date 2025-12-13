@@ -27,14 +27,14 @@ import :info;
 import :archive;
 import :archivedata;
 
-static util::LogHandler g_logHandler;
-static util::LogSeverity g_logSeverity = util::LogSeverity::Info;
-static std::vector<util::Path> g_steamRootPaths;
+static pragma::util::LogHandler g_logHandler;
+static pragma::util::LogSeverity g_logSeverity = pragma::util::LogSeverity::Info;
+static std::vector<pragma::util::Path> g_steamRootPaths;
 
 void pragma::gamemount::set_log_handler(const util::LogHandler &loghandler) { g_logHandler = loghandler; }
 void pragma::gamemount::set_log_severity(util::LogSeverity severity) { g_logSeverity = severity; }
-static bool should_log(util::LogSeverity severity) { return g_logHandler != nullptr && (umath::to_integral(severity) >= umath::to_integral(g_logSeverity)); }
-static void log(const std::string &msg, util::LogSeverity severity)
+static bool should_log(pragma::util::LogSeverity severity) { return g_logHandler != nullptr && (pragma::math::to_integral(severity) >= pragma::math::to_integral(g_logSeverity)); }
+static void log(const std::string &msg, pragma::util::LogSeverity severity)
 {
 	if(!should_log(severity))
 		return;
@@ -43,12 +43,12 @@ static void log(const std::string &msg, util::LogSeverity severity)
 
 pragma::gamemount::GameEngine pragma::gamemount::engine_name_to_enum(const std::string &name)
 {
-	static std::unordered_map<std::string, pragma::gamemount::GameEngine> engineNameToEnum {{"source_engine", GameEngine::SourceEngine}, {"source2", GameEngine::Source2},
+	static std::unordered_map<std::string, GameEngine> engineNameToEnum {{"source_engine", GameEngine::SourceEngine}, {"source2", GameEngine::Source2},
 #ifdef ENABLE_BETHESDA_FORMATS
 	  {"gamebryo", GameEngine::Gamebryo}, {"creation_engine", GameEngine::CreationEngine},
 #endif
 	  {"other", GameEngine::Other}};
-	static_assert(umath::to_integral(pragma::gamemount::GameEngine::Count) == 5);
+	static_assert(math::to_integral(GameEngine::Count) == 5);
 	auto it = engineNameToEnum.find(name);
 	return (it != engineNameToEnum.end()) ? it->second : GameEngine::Invalid;
 }
@@ -69,7 +69,7 @@ std::string pragma::gamemount::to_string(GameEngine engine)
 	case GameEngine::Other:
 		return "other";
 	}
-	static_assert(umath::to_integral(pragma::gamemount::GameEngine::Count) == 5);
+	static_assert(math::to_integral(GameEngine::Count) == 5);
 	return "invalid";
 }
 
@@ -104,7 +104,7 @@ namespace pragma::gamemount {
 		const std::vector<ArchiveFileTable> &GetArchives() const;
 		void FindFiles(const std::string &fpath, std::vector<std::string> *optOutFiles, std::vector<std::string> *optOutDirs, bool keepAbsPaths = false);
 		bool Load(const std::string &path, std::vector<uint8_t> &data);
-		VFilePtr Load(const std::string &path, std::optional<std::string> *optOutSourcePath = nullptr);
+		fs::VFilePtr Load(const std::string &path, std::optional<std::string> *optOutSourcePath = nullptr);
 
 		void MountPath(const std::string &path);
 		ArchiveFileTable &AddArchiveFileTable(const std::string &fileName, const std::shared_ptr<void> &phandle);
@@ -162,7 +162,7 @@ namespace pragma::gamemount {
 		const GameMountInfo *FindGameMountInfo(const std::string &identifier) const
 		{
 			auto &gameMountInfos = GetGameMountInfos();
-			auto it = std::find_if(gameMountInfos.begin(), gameMountInfos.end(), [&identifier](const GameMountInfo &mountInfo) { return ustring::compare(mountInfo.identifier, identifier, false); });
+			auto it = std::find_if(gameMountInfos.begin(), gameMountInfos.end(), [&identifier](const GameMountInfo &mountInfo) { return string::compare(mountInfo.identifier, identifier, false); });
 			if(it == gameMountInfos.end())
 				return nullptr;
 			return &*it;
@@ -172,7 +172,7 @@ namespace pragma::gamemount {
 		BaseMountedGame *FindMountedGameByIdentifier(const std::string &identifier)
 		{
 			auto &gameMountInfos = GetGameMountInfos();
-			auto it = std::find_if(gameMountInfos.begin(), gameMountInfos.end(), [&identifier](const GameMountInfo &mountInfo) { return ustring::compare(mountInfo.identifier, identifier, false); });
+			auto it = std::find_if(gameMountInfos.begin(), gameMountInfos.end(), [&identifier](const GameMountInfo &mountInfo) { return string::compare(mountInfo.identifier, identifier, false); });
 			if(it == gameMountInfos.end())
 				return nullptr;
 			auto idx = it - gameMountInfos.begin();
@@ -190,7 +190,7 @@ namespace pragma::gamemount {
 		static std::string GetNormalizedGamebryoPath(const std::string &path);
 #endif
 	  private:
-		static void InitializeArchiveFileTable(pragma::gamemount::ArchiveFileTable::Item &archiveDir, const pragma::gamemount::hl::Archive::Directory &dir);
+		static void InitializeArchiveFileTable(ArchiveFileTable::Item &archiveDir, const hl::Archive::Directory &dir);
 
 		std::vector<util::Path> FindSteamGamePaths(const std::string &relPath);
 		void MountWorkshopAddons(BaseMountedGame &game, SteamSettings::AppId appId);
@@ -222,7 +222,7 @@ pragma::gamemount::ArchiveFileTable &pragma::gamemount::BaseMountedGame::AddArch
 	return m_archives.back();
 }
 
-const std::vector<util::Path> &pragma::gamemount::BaseMountedGame::GetMountedPaths() const { return m_mountedPaths; }
+const std::vector<pragma::util::Path> &pragma::gamemount::BaseMountedGame::GetMountedPaths() const { return m_mountedPaths; }
 const std::vector<pragma::gamemount::ArchiveFileTable> &pragma::gamemount::BaseMountedGame::GetArchives() const { return m_archives; }
 
 void pragma::gamemount::BaseMountedGame::FindFiles(const std::string &fpath, std::vector<std::string> *optOutFiles, std::vector<std::string> *optOutDirs, bool keepAbsPaths)
@@ -244,8 +244,8 @@ void pragma::gamemount::BaseMountedGame::FindFiles(const std::string &fpath, std
 	for(auto &path : GetMountedPaths()) {
 		auto foffset = optOutFiles ? optOutFiles->size() : 0;
 		auto doffset = optOutDirs ? optOutDirs->size() : 0;
-		auto searchPath = util::Path::CreatePath(FileManager::GetCanonicalizedPath(path.GetString() + ufile::get_path_from_filename(npath)));
-		FileManager::FindSystemFiles((searchPath.GetString() + ufile::get_file_from_filename(npath)).c_str(), optOutFiles, optOutDirs);
+		auto searchPath = util::Path::CreatePath(fs::get_canonicalized_path(path.GetString() + ufile::get_path_from_filename(npath)));
+		fs::find_system_files((searchPath.GetString() + ufile::get_file_from_filename(npath)), optOutFiles, optOutDirs);
 		if(keepAbsPaths) {
 			if(optOutFiles) {
 				for(auto i = foffset; i < optOutFiles->size(); ++i)
@@ -271,7 +271,7 @@ void pragma::gamemount::BaseMountedGame::FindFiles(const std::string &fpath, std
 				auto &d = *it;
 				if(it == itEnd - 1) {
 					for(auto &child : dir->children) {
-						if(ustring::match(child.name, d) == false)
+						if(string::match(child.name, d) == false)
 							continue;
 						if(child.directory == false) {
 							if(optOutFiles != nullptr)
@@ -284,7 +284,7 @@ void pragma::gamemount::BaseMountedGame::FindFiles(const std::string &fpath, std
 					}
 				}
 				else {
-					auto itChild = std::find_if(dir->children.begin(), dir->children.end(), [&d](const decltype(*dir) &dirSub) { return (dirSub.directory == true && ustring::match(dirSub.name, d) == true) ? true : false; });
+					auto itChild = std::find_if(dir->children.begin(), dir->children.end(), [&d](const decltype(*dir) &dirSub) { return (dirSub.directory == true && string::match(dirSub.name, d) == true) ? true : false; });
 					if(itChild == dir->children.end())
 						break;
 					dir = &(*itChild);
@@ -294,7 +294,7 @@ void pragma::gamemount::BaseMountedGame::FindFiles(const std::string &fpath, std
 	};
 	fSearchArchive(m_archives);
 }
-VFilePtr pragma::gamemount::BaseMountedGame::Load(const std::string &fileName, std::optional<std::string> *optOutSourcePath)
+pragma::fs::VFilePtr pragma::gamemount::BaseMountedGame::Load(const std::string &fileName, std::optional<std::string> *optOutSourcePath)
 {
 	if(should_log(util::LogSeverity::Trace))
 		log("[" + GetIdentifier() + "] Loading file '" + fileName + "'...", util::LogSeverity::Trace);
@@ -317,7 +317,7 @@ VFilePtr pragma::gamemount::BaseMountedGame::Load(const std::string &fileName, s
 		filePath += npath;
 		if(should_log(util::LogSeverity::Trace))
 			log("[" + GetIdentifier() + "] Checking system file '" + filePath.GetString() + "'...", util::LogSeverity::Trace);
-		auto f = FileManager::OpenSystemFile(filePath.GetString().c_str(), "rb");
+		auto f = fs::open_system_file(filePath.GetString(), fs::FileMode::Read | fs::FileMode::Binary);
 		if(f) {
 			if(optOutSourcePath)
 				*optOutSourcePath = filePath.GetString();
@@ -333,8 +333,8 @@ VFilePtr pragma::gamemount::BaseMountedGame::Load(const std::string &fileName, s
 		return nullptr;
 	if(optOutSourcePath)
 		*optOutSourcePath = npath;
-	FileManager::AddVirtualFile(npath, data);
-	return FileManager::OpenFile(npath.c_str(), "rb");
+	fs::add_virtual_file(npath, data);
+	return fs::open_file(npath, fs::FileMode::Read | fs::FileMode::Binary);
 }
 bool pragma::gamemount::BaseMountedGame::Load(const std::string &fileName, std::vector<uint8_t> &data)
 {
@@ -348,7 +348,7 @@ bool pragma::gamemount::BaseMountedGame::Load(const std::string &fileName, std::
 		{
 			auto srcPath = GameMountManager::GetNormalizedSourceEnginePath(fileName);
 			for(auto &archive : m_archives) {
-				auto pArchive = std::static_pointer_cast<pragma::gamemount::hl::Archive>(archive.handle);
+				auto pArchive = std::static_pointer_cast<hl::Archive>(archive.handle);
 				if(should_log(util::LogSeverity::Trace))
 					log("[" + GetIdentifier() + "] Checking archive '" + archive.identifier + "'...", util::LogSeverity::Trace);
 				auto stream = pArchive->OpenFile(srcPath);
@@ -389,7 +389,7 @@ bool pragma::gamemount::BaseMountedGame::Load(const std::string &fileName, std::
 			auto creationPath = GameMountManager::GetNormalizedGamebryoPath(fileName);
 			for(auto &archive : m_archives) {
 				auto ba2Handle = std::static_pointer_cast<BA2>(archive.handle);
-				auto it = std::find_if(ba2Handle->nameTable.begin(), ba2Handle->nameTable.end(), [&creationPath](const std::string &other) { return ustring::compare(other, creationPath, false); });
+				auto it = std::find_if(ba2Handle->nameTable.begin(), ba2Handle->nameTable.end(), [&creationPath](const std::string &other) { return pragma::string::compare(other, creationPath, false); });
 				if(it == ba2Handle->nameTable.end())
 					continue;
 				data.clear();
@@ -414,7 +414,7 @@ pragma::gamemount::GameMountManager::~GameMountManager()
 	hlShutdown();
 }
 
-std::vector<util::Path> pragma::gamemount::GameMountManager::FindSteamGamePaths(const std::string &relPath)
+std::vector<pragma::util::Path> pragma::gamemount::GameMountManager::FindSteamGamePaths(const std::string &relPath)
 {
 	if(should_log(util::LogSeverity::Info))
 		log("Searching for steam game path '" + relPath + "'...", util::LogSeverity::Info);
@@ -428,7 +428,7 @@ std::vector<util::Path> pragma::gamemount::GameMountManager::FindSteamGamePaths(
 		auto fullPath = steamPath + "steamapps/" + relPath;
 		if(should_log(util::LogSeverity::Info))
 			log("Checking '" + fullPath.GetString() + "'...", util::LogSeverity::Info);
-		auto result = FileManager::IsSystemDir(fullPath.GetString());
+		auto result = fs::is_system_dir(fullPath.GetString());
 		if(should_log(util::LogSeverity::Info))
 			log(result ? "Found!" : "Not found!", util::LogSeverity::Info);
 		if(result == false)
@@ -438,10 +438,10 @@ std::vector<util::Path> pragma::gamemount::GameMountManager::FindSteamGamePaths(
 	return candidates;
 }
 
-void pragma::gamemount::GameMountManager::InitializeArchiveFileTable(pragma::gamemount::ArchiveFileTable::Item &archiveDir, const pragma::gamemount::hl::Archive::Directory &dir)
+void pragma::gamemount::GameMountManager::InitializeArchiveFileTable(ArchiveFileTable::Item &archiveDir, const hl::Archive::Directory &dir)
 {
 	std::vector<std::string> files;
-	std::vector<pragma::gamemount::hl::Archive::Directory> dirs;
+	std::vector<hl::Archive::Directory> dirs;
 	dir.GetItems(files, dirs);
 	auto fConvertArchiveName = [](const std::string &f) {
 		util::Path archFile {GetNormalizedPath(f)};
@@ -467,7 +467,7 @@ void pragma::gamemount::GameMountManager::MountWorkshopAddons(BaseMountedGame &g
 		auto path = steamPath + "/steamapps/workshop/content/" + std::to_string(appId) + "/";
 
 		std::vector<std::string> workshopAddonPaths;
-		FileManager::FindSystemFiles((path.GetString() + "*").c_str(), nullptr, &workshopAddonPaths, true);
+		fs::find_system_files((path.GetString() + "*"), nullptr, &workshopAddonPaths, true);
 		if(should_log(util::LogSeverity::Info))
 			log("Mounting " + std::to_string(workshopAddonPaths.size()) + " workshop addons in '" + path.GetString() + "'...", util::LogSeverity::Info);
 		for(auto &workshopAddonPath : workshopAddonPaths) {
@@ -477,11 +477,11 @@ void pragma::gamemount::GameMountManager::MountWorkshopAddons(BaseMountedGame &g
 			// TODO
 
 			std::vector<std::string> vpkFilePaths {};
-			FileManager::FindSystemFiles((absWorkshopAddonPath.GetString() + "*.vpk").c_str(), &vpkFilePaths, nullptr, true);
+			fs::find_system_files(absWorkshopAddonPath.GetString() + "*.vpk", &vpkFilePaths, nullptr, true);
 			if(should_log(util::LogSeverity::Info) && vpkFilePaths.empty() == false)
 				log("Found " + std::to_string(vpkFilePaths.size()) + " VPK archive files in workshop addon '" + path.GetString() + "'! Mounting...", util::LogSeverity::Info);
 			for(auto &vpkFilePath : vpkFilePaths) {
-				auto archive = pragma::gamemount::hl::Archive::Create(absWorkshopAddonPath.GetString() + vpkFilePath);
+				auto archive = hl::Archive::Create(absWorkshopAddonPath.GetString() + vpkFilePath);
 				if(archive == nullptr)
 					continue;
 				if(should_log(util::LogSeverity::Info))
@@ -514,7 +514,7 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 	}
 	if(absoluteGamePaths.empty()) {
 		if(mountInfo.absolutePath.has_value()) {
-			auto result = FileManager::IsSystemDir(*mountInfo.absolutePath);
+			auto result = fs::is_system_dir(*mountInfo.absolutePath);
 			if(should_log(util::LogSeverity::Info)) {
 				if(result)
 					log("Found game location for '" + mountInfo.identifier + "' in '" + *mountInfo.absolutePath + "'! Adding to mount list...", util::LogSeverity::Info);
@@ -560,10 +560,10 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 
 	// Load archive files
 	switch(mountInfo.gameEngine) {
-	case pragma::gamemount::GameEngine::SourceEngine:
-	case pragma::gamemount::GameEngine::Source2:
+	case GameEngine::SourceEngine:
+	case GameEngine::Source2:
 		{
-			auto *engineData = static_cast<pragma::gamemount::SourceEngineSettings *>(mountInfo.engineSettings.get());
+			auto *engineData = static_cast<SourceEngineSettings *>(mountInfo.engineSettings.get());
 			if(engineData) {
 				if(should_log(util::LogSeverity::Info))
 					log("Mounting " + std::to_string(engineData->vpkList.size()) + " VPK archive files for game '" + mountInfo.identifier + "'...", util::LogSeverity::Info);
@@ -572,9 +572,9 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 					for(auto &absGamePath : absoluteGamePaths) {
 						util::Path vpkPath {absGamePath + pair.first};
 						auto fileName = std::string {vpkPath.GetFileName()};
-						ustring::to_lower(fileName);
+						string::to_lower(fileName);
 						// pak01_dir is a common name across multiple Source Engine games, so it can appear multiple times
-						if(m_mountedVPKArchives.find(fileName) != m_mountedVPKArchives.end() && ustring::compare<std::string>(fileName, "pak01_dir.vpk", false) == false) {
+						if(m_mountedVPKArchives.find(fileName) != m_mountedVPKArchives.end() && string::compare<std::string>(fileName, "pak01_dir.vpk", false) == false) {
 							if(should_log(util::LogSeverity::Info))
 								log("VPK '" + fileName + "' has already been loaded before! Ignoring...", util::LogSeverity::Info);
 							continue;
@@ -582,7 +582,7 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 
 						if(should_log(util::LogSeverity::Info))
 							log("Mounting VPK '" + vpkPath.GetString() + "'...", util::LogSeverity::Info);
-						auto archive = pragma::gamemount::hl::Archive::Create(vpkPath.GetString());
+						auto archive = hl::Archive::Create(vpkPath.GetString());
 						if(archive == nullptr)
 							continue;
 						found = true;
@@ -603,14 +603,14 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 		{
 			auto *engineData = static_cast<pragma::gamemount::GamebryoSettings *>(mountInfo.engineSettings.get());
 			if(engineData) {
-				if(should_log(util::LogSeverity::Info))
-					log("Mounting " << engineData->bsaList.size() << " BSA archive files for game '" << mountInfo.identifier << "'...", util::LogSeverity::Info);
+				if(should_log(pragma::util::LogSeverity::Info))
+					log("Mounting " << engineData->bsaList.size() << " BSA archive files for game '" << mountInfo.identifier << "'...", pragma::util::LogSeverity::Info);
 				for(auto &pair : engineData->bsaList) {
 					auto found = false;
 					for(auto &absGamePath : absoluteGamePaths) {
-						util::Path bsaPath {absGamePath + pair.first};
-						if(should_log(util::LogSeverity::Info))
-							log("Mounting BSA '" << bsaPath.GetString() << "'...", util::LogSeverity::Info);
+						pragma::util::Path bsaPath {absGamePath + pair.first};
+						if(should_log(pragma::util::LogSeverity::Info))
+							log("Mounting BSA '" << bsaPath.GetString() << "'...", pragma::util::LogSeverity::Info);
 
 						bsa_handle hBsa = nullptr;
 						auto r = bsa_open(&hBsa, bsaPath.GetString().c_str());
@@ -623,7 +623,7 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 							fileTable.root.Add(GetNormalizedGamebryoPath(asset.path), false);
 					}
 					if(found == false && IsVerbose())
-						log("Unable to find BSA archive '" << pair.first << "' for game '" << mountInfo.identifier << "'!", util::LogSeverity::Warning);
+						log("Unable to find BSA archive '" << pair.first << "' for game '" << mountInfo.identifier << "'!", pragma::util::LogSeverity::Warning);
 				}
 			}
 			break;
@@ -632,14 +632,14 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 		{
 			auto *engineData = static_cast<pragma::gamemount::CreationEngineSettings *>(mountInfo.engineSettings.get());
 			if(engineData) {
-				if(should_log(util::LogSeverity::Info))
-					log("Mounting " << engineData->ba2List.size() << " BA2 archive files for game '" << mountInfo.identifier << "'...", util::LogSeverity::Info);
+				if(should_log(pragma::util::LogSeverity::Info))
+					log("Mounting " << engineData->ba2List.size() << " BA2 archive files for game '" << mountInfo.identifier << "'...", pragma::util::LogSeverity::Info);
 				for(auto &pair : engineData->ba2List) {
 					auto found = false;
 					for(auto &absGamePath : absoluteGamePaths) {
-						util::Path bsaPath {absGamePath + pair.first};
-						if(should_log(util::LogSeverity::Info))
-							log("Mounting BA2 '" << bsaPath.GetString() << "'...", util::LogSeverity::Info);
+						pragma::util::Path bsaPath {absGamePath + pair.first};
+						if(should_log(pragma::util::LogSeverity::Info))
+							log("Mounting BA2 '" << bsaPath.GetString() << "'...", pragma::util::LogSeverity::Info);
 
 						auto ba2 = std::make_shared<BA2>();
 						try {
@@ -655,7 +655,7 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 							fileTable.root.Add(GetNormalizedGamebryoPath(asset), false);
 					}
 					if(found == false && IsVerbose())
-						log("Unable to find BA2 archive '" << pair.first << "' for game '" << mountInfo.identifier << "'!", util::LogSeverity::Warning);
+						log("Unable to find BA2 archive '" << pair.first << "' for game '" << mountInfo.identifier << "'!", pragma::util::LogSeverity::Warning);
 				}
 			}
 			break;
@@ -665,7 +665,7 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 
 	// Mount workshop
 	if(mountInfo.steamSettings.has_value()) {
-		if(mountInfo.steamSettings->appId != std::numeric_limits<pragma::gamemount::SteamSettings::AppId>::max())
+		if(mountInfo.steamSettings->appId != std::numeric_limits<SteamSettings::AppId>::max())
 			MountWorkshopAddons(*game, mountInfo.steamSettings->appId);
 	}
 
@@ -677,7 +677,7 @@ void pragma::gamemount::GameMountManager::UpdateGamePriorities()
 {
 	auto &mountedGameInfos = GetGameMountInfos();
 	auto &mountedGames = m_mountedGames;
-	std::sort(mountedGames.begin(), mountedGames.end(), [&mountedGameInfos](const std::unique_ptr<pragma::gamemount::BaseMountedGame> &game0, const std::unique_ptr<pragma::gamemount::BaseMountedGame> &game1) {
+	std::sort(mountedGames.begin(), mountedGames.end(), [&mountedGameInfos](const std::unique_ptr<BaseMountedGame> &game0, const std::unique_ptr<BaseMountedGame> &game1) {
 		auto &info0 = mountedGameInfos[game0->GetGameMountInfoIndex()];
 		auto &info1 = mountedGameInfos[game1->GetGameMountInfoIndex()];
 		return info0.priority > info1.priority;
@@ -718,7 +718,7 @@ void pragma::gamemount::GameMountManager::Start()
 				{
 					std::string gmodAddonPath = steamPath +"/steamapps/common/GarrysMod/garrysmod/addons/";
 					std::vector<std::string> addonDirs;
-					FileManager::FindSystemFiles((gmodAddonPath +"*").c_str(),nullptr,&addonDirs);
+					fs::find_system_files(((gmodAddonPath +"*"),nullptr,&addonDirs);
 					for(auto &d : addonDirs)
 						add_source_game_path(gmodAddonPath +d +"/");
 				}
@@ -742,8 +742,8 @@ bool pragma::gamemount::GameMountManager::MountGame(const GameMountInfo &mountIn
 std::string pragma::gamemount::GameMountManager::GetNormalizedPath(const std::string &path)
 {
 	auto cpy = path;
-	ustring::to_lower(cpy);
-	cpy = FileManager::GetNormalizedPath(cpy);
+	string::to_lower(cpy);
+	cpy = pragma::fs::get_normalized_path(cpy);
 	return cpy;
 }
 
@@ -754,7 +754,7 @@ std::string pragma::gamemount::GameMountManager::GetNormalizedSourceEnginePath(c
 	path.Canonicalize();
 	if(isRoot)
 		path = "../" + path;
-	if(path.IsEmpty() == false && ustring::compare<std::string_view>(path.GetFront(), "sounds", false)) {
+	if(path.IsEmpty() == false && string::compare<std::string_view>(path.GetFront(), "sounds", false)) {
 		path.PopFront();
 		path = "sound/" + path;
 	}
@@ -763,18 +763,18 @@ std::string pragma::gamemount::GameMountManager::GetNormalizedSourceEnginePath(c
 #ifdef ENABLE_BETHESDA_FORMATS
 std::string pragma::gamemount::GameMountManager::GetNormalizedGamebryoPath(const std::string &strPath)
 {
-	util::Path path {GetNormalizedPath(strPath)};
+	pragma::util::Path path {GetNormalizedPath(strPath)};
 	if(path.IsEmpty() == false) {
 		auto front = path.GetFront();
-		if(ustring::compare<std::string_view>(front, "sounds", false)) {
+		if(pragma::string::compare<std::string_view>(front, "sounds", false)) {
 			path.PopFront();
 			path = "sound/" + path;
 		}
-		else if(ustring::compare<std::string_view>(front, "materials", false)) {
+		else if(pragma::string::compare<std::string_view>(front, "materials", false)) {
 			path.PopFront();
 			path = "textures/" + path;
 		}
-		else if(ustring::compare<std::string_view>(front, "models", false))
+		else if(pragma::string::compare<std::string_view>(front, "models", false))
 			path.PopFront();
 	}
 	auto outPath = path.GetString();
@@ -789,7 +789,7 @@ void pragma::gamemount::setup()
 {
 	if(g_gameMountManager)
 		return;
-	g_gameMountManager = std::make_unique<pragma::gamemount::GameMountManager>();
+	g_gameMountManager = std::make_unique<GameMountManager>();
 }
 void pragma::gamemount::initialize(bool bWait)
 {
@@ -820,7 +820,7 @@ void pragma::gamemount::set_mounted_game_priority(const std::string &gameIdentif
 	auto *game = g_gameMountManager->FindMountedGameByIdentifier(gameIdentifier);
 	if(game == nullptr)
 		return;
-	const_cast<pragma::gamemount::GameMountInfo &>(g_gameMountManager->GetGameMountInfos()[game->GetGameMountInfoIndex()]).priority = priority;
+	const_cast<GameMountInfo &>(g_gameMountManager->GetGameMountInfos()[game->GetGameMountInfoIndex()]).priority = priority;
 	g_gameMountManager->UpdateGamePriorities();
 }
 
@@ -833,7 +833,7 @@ bool pragma::gamemount::mount_game(const GameMountInfo &mountInfo)
 	return true;
 }
 
-const std::unordered_map<std::string, util::Path> &pragma::gamemount::get_mounted_vpk_archives()
+const std::unordered_map<std::string, pragma::util::Path> &pragma::gamemount::get_mounted_vpk_archives()
 {
 	setup();
 	initialize(false);
@@ -885,7 +885,7 @@ bool pragma::gamemount::find_files(const std::string &fpath, std::vector<std::st
 	return true;
 }
 
-VFilePtr pragma::gamemount::load(const std::string &path, std::optional<std::string> *optOutSourcePath, const std::optional<std::string> &gameIdentifier)
+pragma::fs::VFilePtr pragma::gamemount::load(const std::string &path, std::optional<std::string> *optOutSourcePath, const std::optional<std::string> &gameIdentifier)
 {
 	setup();
 	initialize(true);

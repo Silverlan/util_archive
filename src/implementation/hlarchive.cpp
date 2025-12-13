@@ -45,11 +45,11 @@ void pragma::gamemount::hl::Archive::Directory::GetItems(std::vector<std::string
 		auto *item = hlFolderGetItem(m_item, i);
 		auto type = hlItemGetType(item);
 		auto *name = hlItemGetName(item);
-		if(type == HLDirectoryItemType::HL_ITEM_FILE) {
+		if(type == HL_ITEM_FILE) {
 			if(files != nullptr)
 				files->push_back(name);
 		}
-		else if(type == HLDirectoryItemType::HL_ITEM_FOLDER && dirs != nullptr)
+		else if(type == HL_ITEM_FOLDER && dirs != nullptr)
 			dirs->push_back(Directory(item, name));
 	}
 }
@@ -63,7 +63,7 @@ void pragma::gamemount::hl::Archive::Directory::GetDirectories(std::vector<Direc
 std::shared_ptr<pragma::gamemount::hl::Archive> pragma::gamemount::hl::Archive::Create(const std::string &path)
 {
 	auto type = hlGetPackageTypeFromName(path.c_str());
-	if(type == HLPackageType::HL_PACKAGE_NONE)
+	if(type == HL_PACKAGE_NONE)
 		return nullptr;
 	auto parchive = std::shared_ptr<Archive>(new Archive());
 	if(hlCreatePackage(type, &parchive->m_uiPackage) == hlFalse || parchive->Bind() == false || hlPackageOpenFile(path.c_str(), HL_MODE_READ) == hlFalse)
@@ -84,7 +84,7 @@ pragma::gamemount::hl::Archive::Directory pragma::gamemount::hl::Archive::GetRoo
 void pragma::gamemount::hl::Archive::SetRootDirectory(const std::string &path)
 {
 	auto *root = hlPackageGetRoot();
-	m_rootDir = hlFolderGetItemByPath(root, path.c_str(), HLFindType::HL_FIND_FOLDERS);
+	m_rootDir = hlFolderGetItemByPath(root, path.c_str(), HL_FIND_FOLDERS);
 }
 
 std::shared_ptr<pragma::gamemount::hl::Archive::Stream> pragma::gamemount::hl::Archive::OpenFile(const std::string &fname)
@@ -92,7 +92,7 @@ std::shared_ptr<pragma::gamemount::hl::Archive::Stream> pragma::gamemount::hl::A
 	if(Bind() == false)
 		return nullptr;
 	auto *root = m_rootDir ? m_rootDir : hlPackageGetRoot();
-	auto *item = hlFolderGetItemByPath(root, fname.c_str(), HLFindType::HL_FIND_FILES);
+	auto *item = hlFolderGetItemByPath(root, fname.c_str(), HL_FIND_FILES);
 	if(item == nullptr)
 		return nullptr;
 	HLStream *pStream = nullptr;
