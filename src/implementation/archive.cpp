@@ -27,6 +27,8 @@ import :info;
 import :archive;
 import :archivedata;
 
+#undef CreateFile
+
 static pragma::util::LogHandler g_logHandler;
 static pragma::util::LogSeverity g_logSeverity = pragma::util::LogSeverity::Info;
 static std::vector<pragma::util::Path> g_steamRootPaths;
