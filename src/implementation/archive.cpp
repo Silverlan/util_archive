@@ -466,12 +466,12 @@ void pragma::gamemount::GameMountManager::InitializeArchiveFileTable(ArchiveFile
 void pragma::gamemount::GameMountManager::MountWorkshopAddons(BaseMountedGame &game, SteamSettings::AppId appId)
 {
 	for(auto &steamPath : g_steamRootPaths) {
-		auto path = steamPath + "/steamapps/workshop/content/" + std::to_string(appId) + "/";
+		auto path = steamPath + "/steamapps/workshop/content/" + util::to_string(appId) + "/";
 
 		std::vector<std::string> workshopAddonPaths;
 		fs::find_system_files((path.GetString() + "*"), nullptr, &workshopAddonPaths, true);
 		if(should_log(util::LogSeverity::Info))
-			log("Mounting " + std::to_string(workshopAddonPaths.size()) + " workshop addons in '" + path.GetString() + "'...", util::LogSeverity::Info);
+			log("Mounting " + util::to_string(workshopAddonPaths.size()) + " workshop addons in '" + path.GetString() + "'...", util::LogSeverity::Info);
 		for(auto &workshopAddonPath : workshopAddonPaths) {
 			auto absWorkshopAddonPath = path + util::get_normalized_path(workshopAddonPath);
 			if(should_log(util::LogSeverity::Info))
@@ -481,7 +481,7 @@ void pragma::gamemount::GameMountManager::MountWorkshopAddons(BaseMountedGame &g
 			std::vector<std::string> vpkFilePaths {};
 			fs::find_system_files(absWorkshopAddonPath.GetString() + "*.vpk", &vpkFilePaths, nullptr, true);
 			if(should_log(util::LogSeverity::Info) && vpkFilePaths.empty() == false)
-				log("Found " + std::to_string(vpkFilePaths.size()) + " VPK archive files in workshop addon '" + path.GetString() + "'! Mounting...", util::LogSeverity::Info);
+				log("Found " + util::to_string(vpkFilePaths.size()) + " VPK archive files in workshop addon '" + path.GetString() + "'! Mounting...", util::LogSeverity::Info);
 			for(auto &vpkFilePath : vpkFilePaths) {
 				auto archive = hl::Archive::Create(absWorkshopAddonPath.GetString() + vpkFilePath);
 				if(archive == nullptr)
@@ -568,7 +568,7 @@ void pragma::gamemount::GameMountManager::InitializeGame(const GameMountInfo &mo
 			auto *engineData = static_cast<SourceEngineSettings *>(mountInfo.engineSettings.get());
 			if(engineData) {
 				if(should_log(util::LogSeverity::Info))
-					log("Mounting " + std::to_string(engineData->vpkList.size()) + " VPK archive files for game '" + mountInfo.identifier + "'...", util::LogSeverity::Info);
+					log("Mounting " + util::to_string(engineData->vpkList.size()) + " VPK archive files for game '" + mountInfo.identifier + "'...", util::LogSeverity::Info);
 				for(auto &pair : engineData->vpkList) {
 					auto found = false;
 					for(auto &absGamePath : absoluteGamePaths) {
@@ -701,7 +701,7 @@ void pragma::gamemount::GameMountManager::Start()
 
 		if(!g_steamRootPaths.empty()) {
 			if(should_log(util::LogSeverity::Info)) {
-				log("Found " + std::to_string(g_steamRootPaths.size()) + " steam locations:", util::LogSeverity::Info);
+				log("Found " + util::to_string(g_steamRootPaths.size()) + " steam locations:", util::LogSeverity::Info);
 				for(auto &path : g_steamRootPaths)
 					log(path.GetString(), util::LogSeverity::Info);
 			}
